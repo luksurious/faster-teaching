@@ -13,9 +13,9 @@ class AlphaArithmetic:
 
     OPERATIONS = {
         OP_PLUS: lambda x, y: x + y,
-        OP_MINUS: lambda x, y: x - y,
-        OP_MUL: lambda x, y: x * y,
-        OP_DIV: lambda x, y: x / y,
+        # OP_MINUS: lambda x, y: x - y,
+        # OP_MUL: lambda x, y: x * y,
+        # OP_DIV: lambda x, y: x / y,
     }
 
     def __init__(self, item_values: dict):
@@ -65,8 +65,12 @@ class Teacher:
     def create_problem(self, problem_len):
         elements = {}
         start = ord('A')
+        # TODO start at 0 or 1?
+        numbers = list(range(1, problem_len + 1))
         for i in range(problem_len):
-            elements[chr(start + i)] = random.randint(1, 10)
+            letter = random.sample(numbers, 1)[0]
+            elements[chr(start + i)] = letter
+            numbers.remove(letter)
 
         self.concept = AlphaArithmetic(elements)
 
@@ -74,7 +78,9 @@ class Teacher:
         shown_concepts = []
 
         for action_num in range(self.max_actions):
-            self.do_action(shown_concepts)
+            result, output = self.choose_action(shown_concepts)
+
+            print(output)
 
             input("Continue?")
 
@@ -85,14 +91,28 @@ class Teacher:
 
         return False
 
-    def do_action(self, shown_concepts):
+    def choose_action(self, shown_concepts):
         # only example action right now
-        equation, result = self.concept.generate_equation(2)
-        while equation in shown_concepts:
-            equation, result = self.concept.generate_equation(2)
+        result, output = self.generate_example()
+        while result in shown_concepts:
+            result, output = self.generate_example()
 
-        print(" ".join(equation) + " = " + str(result))
-        shown_concepts.append(equation)
+        shown_concepts.append(result)
+
+        return result, output
+
+    def generate_example(self):
+        equation, result = self.concept.generate_equation(2)
+
+        return [equation, result], " ".join(equation) + " = " + str(result)
+
+    def generate_question_with_feedback(self):
+
+        return None
+
+    def generate_quiz(self):
+
+        return None
 
     def assess(self):
         # assessment time
@@ -116,7 +136,7 @@ class Teacher:
         print(self.concept.item_values)
 
 
-teacher = Teacher(3, 40, 2)
+teacher = Teacher(3, 40, 6)
 
 if not teacher.teach():
     teacher.reveal_answer()
