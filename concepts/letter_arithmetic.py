@@ -66,19 +66,21 @@ class LetterArithmetic(ConceptBase):
         return [equation, result], " ".join(equation) + " = " + str(result)
 
     def generate_question_with_feedback(self):
-
-        return [None, ""]
+        print("Question")
+        return self.generate_example()
+        # return [None, ""]
 
     def generate_quiz(self):
-
-        return [None, ""]
+        print("Quiz")
+        return self.generate_example()
+        # return [None, ""]
 
     def assess(self) -> bool:
         guesses = []
         correct = True
         for item in self.item_values:
             curr_guess = input("What is %s?" % item)
-            if int(curr_guess) != self.item_values[item]:
+            if curr_guess == '' or int(curr_guess) != self.item_values[item]:
                 correct = False
             guesses.append(curr_guess)
 

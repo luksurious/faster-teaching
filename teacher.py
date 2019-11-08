@@ -30,10 +30,14 @@ class Teacher:
         return False
 
     def choose_action(self, shown_concepts):
-        # only example action right now
-        result, output = self.concept.generate_example()
+        # random strategy
+        current_type = random.sample(
+            [self.concept.generate_example, self.concept.generate_question_with_feedback, self.concept.generate_quiz],
+            1)[0]
+
+        result, output = current_type()
         while result in shown_concepts:
-            result, output = self.concept.generate_example()
+            result, output = current_type()
 
         shown_concepts.append(result)
 
