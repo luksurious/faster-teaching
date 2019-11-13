@@ -10,7 +10,7 @@ def create_letter_arithmetic(problem_len: int = 6):
     elements = {}
     start = ord('A')
     # TODO start at 0 or 1?
-    numbers = list(range(1, problem_len + 1))
+    numbers = list(range(0, problem_len + 1))
     for i in range(problem_len):
         letter = random.sample(numbers, 1)[0]
         elements[chr(start + i)] = letter

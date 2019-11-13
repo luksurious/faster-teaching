@@ -66,14 +66,12 @@ class LetterArithmetic(ConceptBase):
         return [equation, result], " ".join(equation) + " = " + str(result)
 
     def generate_question_with_feedback(self):
-        print("Question")
-        return self.generate_example()
-        # return [None, ""]
+        return self.generate_quiz()
 
     def generate_quiz(self):
-        print("Quiz")
-        return self.generate_example()
-        # return [None, ""]
+        equation, result = self.generate_equation(2)
+
+        return [equation, result], " ".join(equation) + " = ?"
 
     def assess(self) -> bool:
         guesses = []
