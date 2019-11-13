@@ -15,6 +15,10 @@ class ConceptBase(ABC):
         return None
 
     @abstractmethod
+    def get_concept_space(self) -> iter:
+        pass
+
+    @abstractmethod
     def generate_example(self) -> ActionResult:
         raw_result = []
         output = ""
@@ -31,3 +35,7 @@ class ConceptBase(ABC):
         raw_result = []
         output = ""
         return raw_result, output
+
+    @abstractmethod
+    def evaluate_concept(self, action, concept):
+        pass

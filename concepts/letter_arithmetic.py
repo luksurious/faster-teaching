@@ -1,5 +1,6 @@
 # TODO: use NP for random values?
 # import numpy as np
+import itertools
 import random
 from .concept_base import ConceptBase
 
@@ -24,13 +25,30 @@ class LetterArithmetic(ConceptBase):
         # OP_DIV: lambda x, y: x / y,
     }
 
-    def __init__(self, item_values: dict):
-        self.item_values = item_values
+    def __init__(self, problem_len: int):
+        elements = {}
+        start = ord('A')
+        # TODO start at 0 or 1?
+        self.numbers = list(range(0, problem_len + 1))
+        self.letters = []
 
-    def calc_pair(self, a: str, b: str, operation: str):
+        assign_numbers = self.numbers.copy()
+        for i in range(problem_len):
+            number = random.sample(assign_numbers, 1)[0]
+            elements[chr(start + i)] = number
+            assign_numbers.remove(number)
+
+            self.letters.append(chr(start + i))
+
+        self.item_values = elements
+
+    def calc_pair(self, a: str, b: str, operation: str, values=None):
+        if not values:
+            values = self.item_values
+
         try:
-            value_a = self.item_values[a]
-            value_b = self.item_values[b]
+            value_a = values[a]
+            value_b = values[b]
         except KeyError as err_val:
             print("Invalid character given: %s" % err_val)
             return None
@@ -46,7 +64,6 @@ class LetterArithmetic(ConceptBase):
 
         operations = random.sample(self.OPERATIONS.keys(), length - 1)
 
-        result = 0
         equation = []
         for key in range(0, len(chars), 2):
             a = chars[key]
@@ -56,12 +73,24 @@ class LetterArithmetic(ConceptBase):
             equation.append(op)
             equation.append(b)
 
-            result += self.calc_pair(a, b, op)
+        return equation
 
-        return equation, result
+    def evaluation_equation(self, equation, values=None):
+        result = 0
+        start_letter = equation[0]
+        for key in range(1, len(equation), 2):
+            b = equation[key + 1]
+            op = equation[key]
+
+            result = self.calc_pair(start_letter, b, op, values)
+
+            start_letter = result
+
+        return result
 
     def generate_example(self):
-        equation, result = self.generate_equation(2)
+        equation = self.generate_equation(2)
+        result = self.evaluation_equation(equation)
 
         return [equation, result], " ".join(equation) + " = " + str(result)
 
@@ -69,9 +98,15 @@ class LetterArithmetic(ConceptBase):
         return self.generate_quiz()
 
     def generate_quiz(self):
-        equation, result = self.generate_equation(2)
+        equation = self.generate_equation(2)
+        result = self.evaluation_equation(equation)
 
         return [equation, result], " ".join(equation) + " = ?"
+
+    def evaluate_concept(self, result, concept):
+        concept_val = self.evaluation_equation(result[0], concept)
+
+        return concept_val
 
     def assess(self) -> bool:
         guesses = []
@@ -86,3 +121,10 @@ class LetterArithmetic(ConceptBase):
 
     def get_true_concepts(self):
         return self.item_values
+
+    def get_concept_space(self):
+        all_number_combinations = list(itertools.permutations(self.numbers, 6))
+        all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
+
+        return all_concepts
+
