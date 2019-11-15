@@ -15,6 +15,10 @@ class Teacher:
         self.learning_phase_len = learning_phase_len
         self.max_actions = max_actions
 
+        # for memoryless model
+        self.transition_noise = 0.15
+        self.production_noise = 0.019
+
         self.concept = concept
 
         self.actions = {self.ACTION_EXAMPLE: self.concept.generate_example,
@@ -58,9 +62,9 @@ class Teacher:
                     print("Not quite, the correct answer is %d" % result[1])
             self.update_belief(type, result, response)
 
-            print("Current possible plausible concepts: %d" % len(self.belief_state[self.belief_state > 0]))
+            print("Current likely concepts: %d" % np.count_nonzero(self.belief_state > np.min(self.belief_state)))
 
-            print("Contains correct concept?", self.belief_state[self.true_concept_pos] > 0)
+            print("Contains correct concept?", self.belief_state[self.true_concept_pos] > np.min(self.belief_state))
 
             input("Continue?")
 
@@ -99,6 +103,10 @@ class Teacher:
         print(self.concept.get_true_concepts())
 
     def update_belief(self, type, result, response):
+        if type != self.ACTION_QUIZ and np.random.random() <= self.transition_noise:
+            # transition noise probability: no state change;
+            return
+
         new_belief = self.calc_unscaled_belief(type, result, response)
 
         # TODO does it make sense?
@@ -125,9 +133,16 @@ class Teacher:
             p_s = 0
             p_z = 0
             if type == self.ACTION_EXAMPLE:
+                # TODO do I need to calculate the probability of the learners concept
+                #  being already consistent with the new action shomehow?
+
+                # TODO does prior from the paper here refer to the initial prior,
+                #  or the prior previous to the current action?
+                p_s = self.prior_distribution[i]
                 if concept_val == result[1]:
-                    p_s = self.prior_distribution[i]
-                    p_z = 1
+                    p_z = 1-self.production_noise
+                else:
+                    p_z = self.production_noise
             elif type == self.ACTION_QUIZ:
                 if concept_val == int(response) and self.belief_state[i] > 0:
                     # the true state of the learner doesn't change. but we can better infer which state he is in now
@@ -135,13 +150,16 @@ class Teacher:
                     p_z = 1
             else:
                 # TODO: not sure about this, but otherwise it doesnt make sense
-                # the observation is from the previous state, not from the next state
-                # type question with answer; or should somehow be taken into account that more likely now are
-                # concepts whith overlap in old and new state?
+                #  the observation is from the previous state, not from the next state
+                #  type question with answer; or should somehow be taken into account that more likely now are
+                #  concepts whith overlap in old and new state?
+                p_s = self.prior_distribution[i]
                 if concept_val == result[1]:
-                    p_s = self.prior_distribution[i]
-                    p_z = 1
+                    p_z = 1-self.production_noise
+                else:
+                    p_z = self.production_noise
 
             new_belief[i] = p_z * p_s
 
         return new_belief
+
