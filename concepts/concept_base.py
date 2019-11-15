@@ -19,19 +19,19 @@ class ConceptBase(ABC):
         pass
 
     @abstractmethod
-    def generate_example(self) -> ActionResult:
+    def generate_example(self, alternative_concept=None) -> ActionResult:
         raw_result = []
         output = ""
         return raw_result, output
 
     @abstractmethod
-    def generate_question_with_feedback(self) -> ActionResult:
+    def generate_question_with_feedback(self, alternative_concept=None) -> ActionResult:
         raw_result = []
         output = ""
         return raw_result, output
 
     @abstractmethod
-    def generate_quiz(self) -> ActionResult:
+    def generate_quiz(self, alternative_concept=None) -> ActionResult:
         raw_result = []
         output = ""
         return raw_result, output

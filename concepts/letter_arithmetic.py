@@ -88,18 +88,18 @@ class LetterArithmetic(ConceptBase):
 
         return result
 
-    def generate_example(self):
+    def generate_example(self, alternative_concept=None):
         equation = self.generate_equation(2)
-        result = self.evaluation_equation(equation)
+        result = self.evaluation_equation(equation, alternative_concept)
 
         return [equation, result], " ".join(equation) + " = " + str(result)
 
-    def generate_question_with_feedback(self):
-        return self.generate_quiz()
+    def generate_question_with_feedback(self, alternative_concept=None):
+        return self.generate_quiz(alternative_concept)
 
-    def generate_quiz(self):
+    def generate_quiz(self, alternative_concept=None):
         equation = self.generate_equation(2)
-        result = self.evaluation_equation(equation)
+        result = self.evaluation_equation(equation, alternative_concept)
 
         return [equation, result], " ".join(equation) + " = ?"
 

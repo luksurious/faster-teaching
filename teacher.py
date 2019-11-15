@@ -11,9 +11,19 @@ class Teacher:
     ACTION_QUIZ = 'Quiz'
     ACTION_QUESTION = 'Question with Feedback'
 
+    ACTION_COSTS = {
+        ACTION_EXAMPLE: 7.0,
+        ACTION_QUIZ: 6.6,
+        ACTION_QUESTION: 12.0
+    }
+
     def __init__(self, concept: ConceptBase, learning_phase_len: int = 3, max_actions: int = 40):
         self.learning_phase_len = learning_phase_len
         self.max_actions = max_actions
+
+        self.gamma = 0.99
+
+        self.strategy = self.choose_random_action
 
         # for memoryless model
         self.transition_noise = 0.15
@@ -34,6 +44,8 @@ class Teacher:
 
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
+        
+        self.best_action_stack = self.precompute_actions(9)
 
     def teach(self):
         shown_concepts = []
@@ -76,6 +88,16 @@ class Teacher:
         return False
 
     def choose_action(self, shown_concepts):
+        return self.strategy(shown_concepts)
+
+    def choose_best(self, shown_concepts):
+        if len(self.best_action_stack) > 0:
+            # use precomputed actions
+            return self.best_action_stack.pop(0)
+        else:
+            pass
+
+    def choose_random_action(self, shown_concepts):
         # random strategy
         current_type = random.sample(self.actions.keys(), 1)[0]
 
@@ -162,4 +184,34 @@ class Teacher:
             new_belief[i] = p_z * p_s
 
         return new_belief
+
+    def precompute_actions(self, count):
+        self.forward_plan(count, 10)
+
+    def forward_plan(self, depth, sample_actions):
+        # TODO in the paper it is always talked about sampling actions,
+        #  but in the figure it samples items, and considers all actions, and it also makes more sense?
+        samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
+
+        for sample in samples:
+
+            for type, action in self.actions.items():
+                # ## simulate action
+                # if action of type example or question with feedback is chosen, the state of the learner is expected
+                # to transition to a state consistent with it; thus the new belief state is the uniform distribution
+                # over all concepts consistent with the sample
+
+                # TODO since concept size is larger than equation size, should all combinations be evaluated or
+                #  just one?
+                result, _ = action(sample)
+                if type == self.ACTION_EXAMPLE:
+                    pass
+
+
+                # estimate observation
+                # approximate expected state & belief
+                # go deeper
+                # estimate value of leaf: based on the estimated probability that the student knows the correct concept
+                # propagate back up
+                pass
 
