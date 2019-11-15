@@ -21,12 +21,15 @@ class Teacher:
                         self.ACTION_QUIZ: self.concept.generate_quiz,
                         self.ACTION_QUESTION: self.concept.generate_question_with_feedback}
 
-        self.concept_space = self.concept.get_concept_space()
+        self.concept_space = np.array(self.concept.get_concept_space())
 
         # uniform prior distribution
         self.concept_space_size = len(self.concept_space)
-        self.prior_distribution = np.array([1/self.concept_space_size]*self.concept_space_size)
+        self.prior_distribution = np.ones(self.concept_space_size) / self.concept_space_size
         self.belief_state = self.prior_distribution.copy()
+
+        # position of true concept
+        self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
 
     def teach(self):
         shown_concepts = []
@@ -56,6 +59,8 @@ class Teacher:
             self.update_belief(type, result, response)
 
             print("Current possible plausible concepts: %d" % len(self.belief_state[self.belief_state > 0]))
+
+            print("Contains correct concept?", self.belief_state[self.true_concept_pos] > 0)
 
             input("Continue?")
 
@@ -94,6 +99,25 @@ class Teacher:
         print(self.concept.get_true_concepts())
 
     def update_belief(self, type, result, response):
+        new_belief = self.calc_unscaled_belief(type, result, response)
+
+        # TODO does it make sense?
+        if sum(new_belief) == 0:
+            # quiz response inconsistent with previous state, calc only based on quiz now
+            print("Inconsistent quiz response")
+            self.belief_state[:] = 1
+            new_belief = self.calc_unscaled_belief(type, result, response)
+
+            if sum(new_belief) == 0:
+                # still 0 means, invalid response; reset to prior probs
+                new_belief = self.prior_distribution
+
+        new_belief /= sum(new_belief)
+
+        # is prior updated in every step??
+        self.belief_state = new_belief
+
+    def calc_unscaled_belief(self, type, result, response):
         new_belief = np.zeros_like(self.belief_state)
         for i, concept in enumerate(self.concept_space):
             concept_val = self.concept.evaluate_concept(result, concept)
@@ -105,9 +129,10 @@ class Teacher:
                     p_s = self.prior_distribution[i]
                     p_z = 1
             elif type == self.ACTION_QUIZ:
-                if concept_val == int(response):
+                if concept_val == int(response) and self.belief_state[i] > 0:
+                    # the true state of the learner doesn't change. but we can better infer which state he is in now
                     p_s = self.prior_distribution[i]
-                    p_z = self.belief_state[i]
+                    p_z = 1
             else:
                 # TODO: not sure about this, but otherwise it doesnt make sense
                 # the observation is from the previous state, not from the next state
@@ -115,12 +140,8 @@ class Teacher:
                 # concepts whith overlap in old and new state?
                 if concept_val == result[1]:
                     p_s = self.prior_distribution[i]
-                # if concept_val == response:
                     p_z = 1
 
             new_belief[i] = p_z * p_s
 
-        new_belief /= sum(new_belief)
-
-        # is prior updated in every step??
-        self.belief_state = new_belief
+        return new_belief
