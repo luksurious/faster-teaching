@@ -3,7 +3,7 @@ import random
 from concepts.letter_arithmetic import LetterArithmetic
 from teacher import Teacher
 
-random.seed()
+random.seed(123)
 
 concept = LetterArithmetic(6)
 

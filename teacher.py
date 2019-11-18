@@ -1,8 +1,10 @@
 import numpy as np
+import itertools
 import random
 from concepts.concept_base import ConceptBase
 
-random.seed()
+
+# random.seed(123)
 # np.random.seed()
 
 
@@ -44,7 +46,7 @@ class Teacher:
 
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
-        
+
         self.best_action_stack = self.precompute_actions(9)
 
     def teach(self):
@@ -59,7 +61,7 @@ class Teacher:
                 print(output)
             elif type == self.ACTION_QUIZ:
                 print("Can you answer this quiz?")
-                response = input(output)
+                response = input(output)  # TODO handle string input
 
                 correct = response == result[1]
             else:
@@ -95,7 +97,7 @@ class Teacher:
             # use precomputed actions
             return self.best_action_stack.pop(0)
         else:
-            pass
+            return self.forward_plan(3, 10).pop(0)
 
     def choose_random_action(self, shown_concepts):
         # random strategy
@@ -124,19 +126,19 @@ class Teacher:
     def reveal_answer(self):
         print(self.concept.get_true_concepts())
 
-    def update_belief(self, type, result, response):
-        if type != self.ACTION_QUIZ and np.random.random() <= self.transition_noise:
+    def update_belief(self, action_type, result, response):
+        if action_type != self.ACTION_QUIZ and np.random.random() <= self.transition_noise:
             # transition noise probability: no state change;
             return
 
-        new_belief = self.calc_unscaled_belief(type, result, response)
+        new_belief = self.calc_unscaled_belief(action_type, result, response)
 
         # TODO does it make sense?
         if sum(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
             print("Inconsistent quiz response")
             self.belief_state[:] = 1
-            new_belief = self.calc_unscaled_belief(type, result, response)
+            new_belief = self.calc_unscaled_belief(action_type, result, response)
 
             if sum(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
@@ -147,25 +149,25 @@ class Teacher:
         # is prior updated in every step??
         self.belief_state = new_belief
 
-    def calc_unscaled_belief(self, type, result, response):
+    def calc_unscaled_belief(self, action_type, result, response):
         new_belief = np.zeros_like(self.belief_state)
         for i, concept in enumerate(self.concept_space):
             concept_val = self.concept.evaluate_concept(result, concept)
 
             p_s = 0
             p_z = 0
-            if type == self.ACTION_EXAMPLE:
+            if action_type == self.ACTION_EXAMPLE:
                 # TODO do I need to calculate the probability of the learners concept
-                #  being already consistent with the new action shomehow?
+                #  being already consistent with the new action somehow?
 
                 # TODO does prior from the paper here refer to the initial prior,
                 #  or the prior previous to the current action?
                 p_s = self.prior_distribution[i]
                 if concept_val == result[1]:
-                    p_z = 1-self.production_noise
+                    p_z = 1 - self.production_noise
                 else:
                     p_z = self.production_noise
-            elif type == self.ACTION_QUIZ:
+            elif action_type == self.ACTION_QUIZ:
                 if concept_val == int(response) and self.belief_state[i] > 0:
                     # the true state of the learner doesn't change. but we can better infer which state he is in now
                     p_s = self.prior_distribution[i]
@@ -174,10 +176,10 @@ class Teacher:
                 # TODO: not sure about this, but otherwise it doesnt make sense
                 #  the observation is from the previous state, not from the next state
                 #  type question with answer; or should somehow be taken into account that more likely now are
-                #  concepts whith overlap in old and new state?
+                #  concepts with overlap in old and new state?
                 p_s = self.prior_distribution[i]
                 if concept_val == result[1]:
-                    p_z = 1-self.production_noise
+                    p_z = 1 - self.production_noise
                 else:
                     p_z = self.production_noise
 
@@ -191,27 +193,55 @@ class Teacher:
     def forward_plan(self, depth, sample_actions):
         # TODO in the paper it is always talked about sampling actions,
         #  but in the figure it samples items, and considers all actions, and it also makes more sense?
-        samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
+        # samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
 
-        for sample in samples:
+        # check all options until a certain depth
+        samples = self.concept_space
 
-            for type, action in self.actions.items():
-                # ## simulate action
-                # if action of type example or question with feedback is chosen, the state of the learner is expected
-                # to transition to a state consistent with it; thus the new belief state is the uniform distribution
-                # over all concepts consistent with the sample
+        visited_actions = []
 
-                # TODO since concept size is larger than equation size, should all combinations be evaluated or
-                #  just one?
-                result, _ = action(sample)
-                if type == self.ACTION_EXAMPLE:
-                    pass
+        for concept in samples:
+            # for action_type, action in self.actions.items():
+            # ## simulate actions
+            # if action of type example or question with feedback is chosen, the state of the learner is expected
+            # to transition to a state consistent with it; thus the new belief state is the uniform distribution
+            # over all concepts consistent with the sample
+
+            # TODO since concept size is larger than equation size, should all combinations be evaluated or
+            #  just one? So for the same concepts there are many different combinations possible
+
+            # test all options
+            combinations = itertools.combinations(concept, 2)
+
+            for pair in combinations:
+                equation = [pair[0], '+', pair[1]]
+                value = self.concept.evaluate_concept([equation], concept)
+                result = [equation, value]
+
+                if result in visited_actions:
+                    # TODO reuse tree instead of skipping
+                    continue
+
+                visited_actions.append(result)
+
+                # example action
+                ## simulate belief change
 
 
-                # estimate observation
-                # approximate expected state & belief
-                # go deeper
-                # estimate value of leaf: based on the estimated probability that the student knows the correct concept
-                # propagate back up
-                pass
+                # quiz action
 
+                # question action
+
+            # result, _ = action(concept)
+            # if action_type == self.ACTION_EXAMPLE:
+            #     pass
+
+            # estimate observation
+            # approximate expected state & belief
+            # go deeper
+            # estimate value of leaf: based on the estimated probability that the student knows the correct concept
+            # propagate back up
+            pass
+
+    def estimate_belief(self, belief_state):
+        return belief_state[self.true_concept_pos]  # 1-p for costs? how to combine with costs of actions

@@ -6,7 +6,7 @@ from .concept_base import ConceptBase
 
 
 # TODO where to seed
-random.seed()
+# random.seed()
 
 
 # problem: alphabetic arithmetic
@@ -41,6 +41,7 @@ class LetterArithmetic(ConceptBase):
             self.letters.append(chr(start + i))
 
         self.item_values = elements
+        self.equation_length = 2
 
     def calc_pair(self, a: str, b: str, operation: str, values=None):
         if not values:
@@ -61,6 +62,8 @@ class LetterArithmetic(ConceptBase):
 
     def generate_equation(self, length: int = 2):
         chars = random.sample(self.item_values.keys(), length)
+        # if only using addition, order does not matter, so we can reduce the possibilities
+        chars = sorted(chars)
 
         operations = random.sample(self.OPERATIONS.keys(), length - 1)
 
@@ -89,7 +92,7 @@ class LetterArithmetic(ConceptBase):
         return result
 
     def generate_example(self, alternative_concept=None):
-        equation = self.generate_equation(2)
+        equation = self.generate_equation(self.equation_length)
         result = self.evaluation_equation(equation, alternative_concept)
 
         return [equation, result], " ".join(equation) + " = " + str(result)
@@ -98,7 +101,7 @@ class LetterArithmetic(ConceptBase):
         return self.generate_quiz(alternative_concept)
 
     def generate_quiz(self, alternative_concept=None):
-        equation = self.generate_equation(2)
+        equation = self.generate_equation(self.equation_length)
         result = self.evaluation_equation(equation, alternative_concept)
 
         return [equation, result], " ".join(equation) + " = ?"
@@ -123,8 +126,7 @@ class LetterArithmetic(ConceptBase):
         return self.item_values
 
     def get_concept_space(self):
-        all_number_combinations = list(itertools.permutations(self.numbers, 6))
+        all_number_combinations = list(itertools.permutations(self.numbers, len(self.item_values)))
         all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
 
         return all_concepts
-
