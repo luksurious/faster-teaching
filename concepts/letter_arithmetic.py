@@ -5,10 +5,6 @@ import random
 from .concept_base import ConceptBase
 
 
-# TODO where to seed
-# random.seed()
-
-
 # problem: alphabetic arithmetic
 class LetterArithmetic(ConceptBase):
     OP_PLUS = '+'
@@ -116,7 +112,12 @@ class LetterArithmetic(ConceptBase):
         correct = True
         for item in self.item_values:
             curr_guess = input("What is %s?" % item)
-            if curr_guess == '' or int(curr_guess) != self.item_values[item]:
+            try:
+                curr_guess = int(curr_guess)
+
+                if curr_guess != self.item_values[item]:
+                    correct = False
+            except:
                 correct = False
             guesses.append(curr_guess)
 
