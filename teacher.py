@@ -129,6 +129,7 @@ class Teacher:
         print(self.concept.get_true_concepts())
 
     def precompute_actions(self, count):
+        # TODO use faster array/list method
         tree = {
             "belief": self.belief,
             "children": []
@@ -217,4 +218,5 @@ class Teacher:
         return max_val
 
     def estimate_belief(self, belief: Belief):
-        return belief.belief_state[self.true_concept_pos]  # 1-p for costs? how to combine with costs of actions
+        # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
+        return (1 - belief.belief_state[self.true_concept_pos]) * 10 * min(self.ACTION_COSTS.values())
