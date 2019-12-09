@@ -1,5 +1,5 @@
 # TODO: use NP for random values?
-# import numpy as np
+import numpy as np
 import itertools
 import random
 from .concept_base import ConceptBase
@@ -25,7 +25,7 @@ class LetterArithmetic(ConceptBase):
         elements = {}
         start = ord('A')
         # TODO start at 0 or 1?
-        self.numbers = list(range(0, problem_len + 1))
+        self.numbers = list(range(0, problem_len))
         self.letters = []
 
         assign_numbers = self.numbers.copy()
@@ -38,6 +38,10 @@ class LetterArithmetic(ConceptBase):
 
         self.item_values = elements
         self.equation_length = 2
+
+        all_number_combinations = list(itertools.permutations(self.numbers, len(self.item_values)))
+        all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
+        self.all_concepts = np.array(all_concepts)
 
     def calc_pair(self, a: str, b: str, operation: str, values=None):
         if not values:
@@ -127,7 +131,4 @@ class LetterArithmetic(ConceptBase):
         return self.item_values
 
     def get_concept_space(self):
-        all_number_combinations = list(itertools.permutations(self.numbers, len(self.item_values)))
-        all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
-
-        return all_concepts
+        return self.all_concepts

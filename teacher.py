@@ -5,16 +5,14 @@ import random
 from belief import Belief
 from concepts.concept_base import ConceptBase
 
+from actions import Actions
+
 
 class Teacher:
-    ACTION_EXAMPLE = 'Example'
-    ACTION_QUIZ = 'Quiz'
-    ACTION_QUESTION = 'Question with Feedback'
-
     ACTION_COSTS = {
-        ACTION_EXAMPLE: 7.0,
-        ACTION_QUIZ: 6.6,
-        ACTION_QUESTION: 12.0
+        Actions.EXAMPLE: 7.0,
+        Actions.QUIZ: 6.6,
+        Actions.QUESTION: 12.0
     }
 
     def __init__(self, concept: ConceptBase, learning_phase_len: int = 3, max_actions: int = 40):
@@ -31,18 +29,18 @@ class Teacher:
 
         self.concept = concept
 
-        self.actions = {self.ACTION_EXAMPLE: self.concept.generate_example,
-                        self.ACTION_QUIZ: self.concept.generate_quiz,
-                        self.ACTION_QUESTION: self.concept.generate_question_with_feedback}
+        self.actions = {Actions.EXAMPLE: self.concept.generate_example,
+                        Actions.QUIZ: self.concept.generate_quiz,
+                        Actions.QUESTION: self.concept.generate_question_with_feedback}
 
-        self.concept_space = np.array(self.concept.get_concept_space())
+        self.concept_space = self.concept.get_concept_space()
 
         # uniform prior distribution
         self.concept_space_size = len(self.concept_space)
-        self.prior_distribution = np.ones(self.concept_space_size) / self.concept_space_size
+        self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
         # self.belief_state = self.prior_distribution.copy()
 
-        self.belief = Belief(self)
+        self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept)
 
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
@@ -55,11 +53,11 @@ class Teacher:
         for action_num in range(self.max_actions):
             type, result, output = self.choose_action(shown_concepts)
 
-            if type == self.ACTION_EXAMPLE:
+            if type == Actions.EXAMPLE:
                 print("Let's see an example")
                 response = None
                 print(output)
-            elif type == self.ACTION_QUIZ:
+            elif type == Actions.QUIZ:
                 print("Can you answer this quiz?")
                 response = input(output)  # TODO handle string input
 
@@ -99,7 +97,7 @@ class Teacher:
             # use precomputed actions
             return self.best_action_stack.pop(0)
         else:
-            return self.forward_plan(3, 10).pop(0)
+            return self.forward_plan(3, 10, 3).pop(0)
 
     def choose_random_action(self, shown_concepts):
         # random strategy
@@ -183,14 +181,14 @@ class Teacher:
 
             # example action
             # # simulate belief change
-            new_belief = Belief(self, parent["belief"].belief_state.copy())
-            new_belief.update_belief(self.ACTION_EXAMPLE, result, None)
+            new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
+            new_belief.update_belief(Actions.EXAMPLE, result, None)
 
             new_node = {
                 "belief": new_belief,
                 "children": [],
                 "item": result,
-                "action": self.ACTION_EXAMPLE
+                "action": Actions.EXAMPLE
             }
 
             val = self.forward_plan(new_node, depth-1, sample_actions)
