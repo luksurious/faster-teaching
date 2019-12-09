@@ -142,9 +142,7 @@ class Teacher:
         # samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
 
         if depth <= 0:
-            return self.estimate_belief(parent["belief"])
-
-        visited_actions = []
+            return self.estimate_belief(parent["belief"]), 0
 
         # possible_paths = []
 
@@ -165,19 +163,15 @@ class Teacher:
         samples = combinations
 
         # TODO take gamma into account
-        # TODO take costs into account
-        max_val = 0
+        min_costs = float('Inf')
+        min_idx = 0
 
         for pair in combinations:
             equation = [pair[0], '+', pair[1]]
             value = self.concept.evaluate_concept([equation], concept)
             result = [equation, value]
 
-            if result in visited_actions:
-                # TODO reuse tree instead of skipping
-                continue
-
-            # visited_actions.append(result)
+            # sample observations?
 
             # example action
             # # simulate belief change
@@ -191,13 +185,16 @@ class Teacher:
                 "action": Actions.EXAMPLE
             }
 
-            val = self.forward_plan(new_node, depth-1, sample_actions)
-            new_node["value"] = val
+            val, idx = self.forward_plan(new_node, depth-1, sample_actions)
+            val = val * self.gamma
+            new_node["value"] = val + self.ACTION_COSTS[Actions.EXAMPLE]
+            new_node["min_idx"] = idx
 
             parent["children"].append(new_node)
 
-            if val > max_val:
-                max_val = val
+            if val < min_costs:
+                min_costs = val
+                min_idx = len(parent["children"])-1
 
             # quiz action
 
@@ -213,7 +210,10 @@ class Teacher:
         # estimate value of leaf: based on the estimated probability that the student knows the correct concept
         # propagate back up
 
-        return max_val
+        parent["min_val"] = min_costs
+        parent["min_idx"] = min_idx
+
+        return min_costs, min_idx
 
     def estimate_belief(self, belief: Belief):
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))

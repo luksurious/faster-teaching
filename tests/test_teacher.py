@@ -21,7 +21,7 @@ def test_precompute():
     teacher = Teacher(concept)
 
     # initial belief uniformly distributed
-    tree = teacher.precompute_actions(1)
+    tree = teacher.precompute_actions(2)
     print(tree)
     # one level tree
     assert len(tree["children"]) == 15
