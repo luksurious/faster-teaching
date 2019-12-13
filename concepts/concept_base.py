@@ -39,3 +39,7 @@ class ConceptBase(ABC):
     @abstractmethod
     def evaluate_concept(self, action, concept):
         pass
+
+    @abstractmethod
+    def gen_readable_format(self, result, show_answer=True):
+        pass

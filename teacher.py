@@ -21,7 +21,7 @@ class Teacher:
 
         self.gamma = 0.99
 
-        self.strategy = self.choose_random_action
+        self.strategy = self.choose_best
 
         # for memoryless model
         self.transition_noise = 0.15
@@ -45,34 +45,36 @@ class Teacher:
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
 
-        self.best_action_stack = self.precompute_actions(2)
+        self.best_action_stack = self.plan_best_actions(3)
 
     def teach(self):
         shown_concepts = []
 
         for action_num in range(self.max_actions):
-            type, result, output = self.choose_action(shown_concepts)
+            action_type, equation, result = self.choose_action(shown_concepts)
 
-            if type == Actions.EXAMPLE:
+            action_data = (equation, result)
+
+            if action_type == Actions.EXAMPLE:
                 print("Let's see an example")
                 response = None
-                print(output)
-            elif type == Actions.QUIZ:
+                print(self.concept.gen_readable_format(action_data))
+            elif action_type == Actions.QUIZ:
                 print("Can you answer this quiz?")
-                response = input(output)  # TODO handle string input
+                response = input(self.concept.gen_readable_format(action_data))  # TODO handle string input
 
-                correct = response == result[1]
+                correct = response == action_data[1]
             else:
                 # Question with feedback
                 print("Question:")
-                response = input(output)
+                response = input(self.concept.gen_readable_format(action_data))  # TODO handle string input
 
-                correct = response == result[1]
+                correct = response == action_data[1]
                 if correct:
                     print("Yes, that's correct")
                 else:
-                    print("Not quite, the correct answer is %d" % result[1])
-            self.belief.update_belief(type, result, response)
+                    print("Not quite, the correct answer is %d" % action_data[1])
+            self.belief.update_belief(action_type, action_data, response)
 
             print("Current likely concepts: %d" % np.count_nonzero(
                 self.belief.belief_state > np.min(self.belief.belief_state)))
@@ -97,19 +99,20 @@ class Teacher:
             # use precomputed actions
             return self.best_action_stack.pop(0)
         else:
-            return self.forward_plan(3, 10, 3).pop(0)
+            return self.plan_best_actions(2).pop(0)
 
     def choose_random_action(self, shown_concepts):
         # random strategy
         current_type = random.sample(self.actions.keys(), 1)[0]
 
-        result, output = self.actions[current_type]()
-        while result in shown_concepts:
-            result, output = self.actions[current_type]()
+        equation, result = self.actions[current_type]()
+        while equation in shown_concepts:
+            equation, result = self.actions[current_type]()
 
-        shown_concepts.append(result)
+        # TODO check for different types
+        shown_concepts.append(equation)
 
-        return current_type, result, output
+        return current_type, equation, result
 
     def assess(self):
         # assessment time
@@ -126,7 +129,7 @@ class Teacher:
     def reveal_answer(self):
         print(self.concept.get_true_concepts())
 
-    def precompute_actions(self, count):
+    def plan_best_actions(self, count):
         # TODO use faster array/list method
         tree = {
             "belief": self.belief,
@@ -134,14 +137,22 @@ class Teacher:
         }
         self.forward_plan(tree, count, 10)
 
-        return tree
+        # find optimal path
+        actions = []
+        parent = tree
+        while len(parent["children"]) > 0:
+            if parent["min_idx"] < 0:
+                break
+            next_action_tree = parent["children"][ parent["min_idx"] ]
+            actions.append((next_action_tree["action"], next_action_tree["item"][0], next_action_tree["item"][1]))
+            parent = next_action_tree
+
+        return actions
 
     def forward_plan(self, parent, depth, sample_actions):
-        # TODO in the paper it is always talked about sampling actions,
-        #  but in the figure it samples items, and considers all actions, and it also makes more sense?
-        # samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
 
         if depth <= 0:
+            # estimate value of leaf: based on the estimated probability that the student knows the correct concept
             return self.estimate_belief(parent["belief"]), 0
 
         # possible_paths = []
@@ -157,16 +168,20 @@ class Teacher:
 
         # test all options
         concept = self.concept.get_true_concepts()
-        combinations = itertools.combinations(concept, 2)
+        # TODO: conversion to list only to count len later
+        combinations = list(itertools.combinations(concept, 2))
 
+        # TODO in the paper it is always talked about sampling actions,
+        #  but in the figure it samples items, and considers all actions, and it also makes more sense?
+        # samples = np.random.choice(self.concept_space, p=self.belief_state, size=sample_actions)
         # check all options until a certain depth
         samples = combinations
+        #print("Checking depth %d with %d options" % (depth, len(samples)))
 
-        # TODO take gamma into account
         min_costs = float('Inf')
-        min_idx = 0
+        min_idx = -1
 
-        for pair in combinations:
+        for pair in samples:
             equation = [pair[0], '+', pair[1]]
             value = self.concept.evaluate_concept([equation], concept)
             result = [equation, value]
@@ -175,6 +190,7 @@ class Teacher:
 
             # example action
             # # simulate belief change
+            # estimate observation
             new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
             new_belief.update_belief(Actions.EXAMPLE, result, None)
 
@@ -185,8 +201,11 @@ class Teacher:
                 "action": Actions.EXAMPLE
             }
 
+            # approximate expected state & belief
+            # go deeper
             val, idx = self.forward_plan(new_node, depth-1, sample_actions)
             val = val * self.gamma
+            # propagate back up
             new_node["value"] = val + self.ACTION_COSTS[Actions.EXAMPLE]
             new_node["min_idx"] = idx
 
@@ -199,16 +218,6 @@ class Teacher:
             # quiz action
 
             # question action
-
-        # result, _ = action(concept)
-        # if action_type == self.ACTION_EXAMPLE:
-        #     pass
-
-        # estimate observation
-        # approximate expected state & belief
-        # go deeper
-        # estimate value of leaf: based on the estimated probability that the student knows the correct concept
-        # propagate back up
 
         parent["min_val"] = min_costs
         parent["min_idx"] = min_idx

@@ -95,7 +95,7 @@ class LetterArithmetic(ConceptBase):
         equation = self.generate_equation(self.equation_length)
         result = self.evaluation_equation(equation, alternative_concept)
 
-        return [equation, result], " ".join(equation) + " = " + str(result)
+        return equation, result
 
     def generate_question_with_feedback(self, alternative_concept=None):
         return self.generate_quiz(alternative_concept)
@@ -104,7 +104,14 @@ class LetterArithmetic(ConceptBase):
         equation = self.generate_equation(self.equation_length)
         result = self.evaluation_equation(equation, alternative_concept)
 
-        return [equation, result], " ".join(equation) + " = ?"
+        return equation, result
+
+    def gen_readable_format(self, result, show_answer=True):
+        right_side = str(result[1])
+        if show_answer is False:
+            right_side = '?'
+
+        return " ".join(result[0]) + " = " + right_side
 
     def evaluate_concept(self, result, concept):
         concept_val = self.evaluation_equation(result[0], concept)
