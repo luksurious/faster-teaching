@@ -2,25 +2,13 @@
 import numpy as np
 import itertools
 import random
+
+from actions import Actions
 from .concept_base import ConceptBase
 
 
 # problem: alphabetic arithmetic
-class LetterArithmetic(ConceptBase):
-    OP_PLUS = '+'
-    OP_MINUS = '-'
-    OP_MUL = '*'
-    OP_DIV = '/'
-
-    OPERATIONS = {
-        OP_PLUS: lambda x, y: x + y,
-
-        # In the experiment described in the paper only additions were used
-        # OP_MINUS: lambda x, y: x - y,
-        # OP_MUL: lambda x, y: x * y,
-        # OP_DIV: lambda x, y: x / y,
-    }
-
+class LetterAddition(ConceptBase):
     def __init__(self, problem_len: int):
         elements = {}
         start = ord('A')
@@ -43,7 +31,10 @@ class LetterArithmetic(ConceptBase):
         all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
         self.all_concepts = np.array(all_concepts)
 
-    def calc_pair(self, a: str, b: str, operation: str, values=None):
+        letter_combs = list(itertools.combinations(self.letters, 2))
+        self.letter_actions = list(itertools.product(letter_combs, Actions.all()))
+
+    def calc_pair(self, a: str, b: str, values=None):
         if not values:
             values = self.item_values
 
@@ -54,26 +45,18 @@ class LetterArithmetic(ConceptBase):
             print("Invalid character given: %s" % err_val)
             return None
 
-        try:
-            return self.OPERATIONS[operation](value_a, value_b)
-        except KeyError:
-            print("Invalid operation given: %s" % operation)
-            return None
+        return value_a + value_b
 
     def generate_equation(self, length: int = 2):
         chars = random.sample(self.item_values.keys(), length)
         # if only using addition, order does not matter, so we can reduce the possibilities
         chars = sorted(chars)
 
-        operations = random.sample(self.OPERATIONS.keys(), length - 1)
-
         equation = []
         for key in range(0, len(chars), 2):
             a = chars[key]
             b = chars[key + 1]
-            op = operations.pop()
             equation.append(a)
-            equation.append(op)
             equation.append(b)
 
         return equation
@@ -81,11 +64,10 @@ class LetterArithmetic(ConceptBase):
     def evaluation_equation(self, equation, values=None):
         result = 0
         start_letter = equation[0]
-        for key in range(1, len(equation), 2):
-            b = equation[key + 1]
-            op = equation[key]
+        for key in range(1, len(equation)):
+            b = equation[key]
 
-            result = self.calc_pair(start_letter, b, op, values)
+            result = self.calc_pair(start_letter, b, values)
 
             start_letter = result
 
@@ -111,9 +93,9 @@ class LetterArithmetic(ConceptBase):
         if show_answer is False:
             right_side = '?'
 
-        return " ".join(result[0]) + " = " + right_side
+        return " + ".join(result[0]) + " = " + right_side
 
-    def evaluate_concept(self, result, concept):
+    def evaluate_concept(self, result, concept=None):
         concept_val = self.evaluation_equation(result[0], concept)
 
         return concept_val
@@ -139,3 +121,6 @@ class LetterArithmetic(ConceptBase):
 
     def get_concept_space(self):
         return self.all_concepts
+
+    def get_rl_actions(self):
+        return self.letter_actions

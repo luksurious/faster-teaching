@@ -5,12 +5,12 @@ import numpy as np
 from actions import Actions
 from belief import Belief
 from concepts.concept_base import ConceptBase, ActionResult
-from concepts.letter_arithmetic import LetterArithmetic
+from concepts.letter_arithmetic import LetterAddition
 
 
 def test_belief_trivial():
     random.seed(0)
-    concept = LetterArithmetic(2)
+    concept = LetterAddition(2)
     assert concept.get_true_concepts() == {'A': 1, 'B': 0}
 
     belief = create_test_belief(concept)
@@ -26,7 +26,7 @@ def test_belief_trivial():
 
 def test_belief_three_example():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -43,7 +43,7 @@ def test_belief_three_example():
 
 def test_belief_three_example_2iter():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -69,7 +69,7 @@ def test_belief_three_example_2iter():
 
 def test_belief_three_quiz_correct_with_uniform_prior():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -86,7 +86,7 @@ def test_belief_three_quiz_correct_with_uniform_prior():
 
 def test_belief_three_quiz_false_with_uniform_prior():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -103,7 +103,7 @@ def test_belief_three_quiz_false_with_uniform_prior():
 
 def test_belief_three_quiz_invalid():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -121,7 +121,7 @@ def test_belief_three_quiz_invalid():
 
 def test_belief_three_example_quiz_correct():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 
@@ -146,7 +146,7 @@ def test_belief_three_example_quiz_correct():
 
 def test_belief_three_example_quiz_inconsistent():
     random.seed(0)
-    concept = LetterArithmetic(3)
+    concept = LetterAddition(3)
 
     assert concept.get_true_concepts() == {'A': 1, 'B': 2, 'C': 0}
 

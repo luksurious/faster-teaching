@@ -1,5 +1,4 @@
 import numpy as np
-import itertools
 import random
 
 from belief import Belief
@@ -45,7 +44,7 @@ class Teacher:
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
 
-        self.best_action_stack = self.plan_best_actions(3)
+        self.best_action_stack = self.plan_best_actions(2)
         print(self.best_action_stack)
 
     def teach(self):
@@ -62,13 +61,11 @@ class Teacher:
                 print(self.concept.gen_readable_format(action_data))
             elif action_type == Actions.QUIZ:
                 print("Can you answer this quiz?")
-                response = input(self.concept.gen_readable_format(action_data, False))  # TODO handle string input
-
-                correct = response == action_data[1]
+                response = input(self.concept.gen_readable_format(action_data, False))
             else:
                 # Question with feedback
                 print("Question:")
-                response = input(self.concept.gen_readable_format(action_data))  # TODO handle string input
+                response = input(self.concept.gen_readable_format(action_data, False))
 
                 correct = response == action_data[1]
                 if correct:
@@ -156,14 +153,14 @@ class Teacher:
 
     def print_plan_tree(self, parent, indent=''):
         for item in parent["children"]:
-            print("%s Action: %s : %.2f" % (indent, self.concept.gen_readable_format(item["item"], True), item["value"]))
+            print("%s Action: %s %s : %.2f" % (indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent+'..')
 
     def forward_plan(self, parent, depth, sample_actions):
 
         if depth <= 0:
             # estimate value of leaf: based on the estimated probability that the student knows the correct concept
-            return self.estimate_belief(parent["belief"]), 0
+            return self.estimate_belief(parent["belief"])
 
         # possible_paths = []
 
@@ -177,9 +174,7 @@ class Teacher:
         #  just one? So for the same concepts there are many different combinations possible
 
         # test all options
-        concept = self.concept.get_true_concepts()
-        # TODO: conversion to list only to count len later
-        combinations = list(itertools.combinations(concept, 2))
+        combinations = self.concept.get_rl_actions()
 
         # TODO in the paper it is always talked about sampling actions,
         #  but in the figure it samples items, and considers all actions, and it also makes more sense?
@@ -189,50 +184,49 @@ class Teacher:
         #print("Checking depth %d with %d options" % (depth, len(samples)))
 
         min_costs = float('Inf')
-        min_idx = -1
 
         for pair in samples:
-            equation = [pair[0], '+', pair[1]]
-            value = self.concept.evaluate_concept([equation], concept)
-            result = [equation, value]
+            equation = pair[0]
+            teaching_action = pair[1]
+            value = self.concept.evaluate_concept([equation])
+            result = (equation, value)
 
             # sample observations?
 
             # example action
             # # simulate belief change
             # estimate observation
+            expected_obs = None
+            if teaching_action != Actions.EXAMPLE:
+                # TODO is that correct?
+                believed_concept = np.random.choice(self.concept_space, p=parent["belief"].belief_state)
+                expected_obs = self.concept.evaluate_concept([equation], believed_concept)
+
             new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
-            new_belief.update_belief(Actions.EXAMPLE, result, None)
+            new_belief.update_belief(teaching_action, result, expected_obs)
 
             new_node = {
                 "belief": new_belief,
                 "children": [],
                 "item": result,
-                "action": Actions.EXAMPLE
+                "action": teaching_action
             }
 
             # approximate expected state & belief
             # go deeper
-            val, idx = self.forward_plan(new_node, depth-1, sample_actions)
+            val = self.forward_plan(new_node, depth-1, sample_actions)
             val = val * self.gamma + self.ACTION_COSTS[Actions.EXAMPLE]
             # propagate back up
             new_node["value"] = val
-            new_node["min_idx"] = idx
 
             parent["children"].append(new_node)
 
             if val < min_costs:
                 min_costs = val
-                min_idx = len(parent["children"])-1
-
-            # quiz action
-
-            # question action
 
         parent["min_val"] = min_costs
-        parent["min_idx"] = min_idx
 
-        return min_costs, min_idx
+        return min_costs
 
     def estimate_belief(self, belief: Belief):
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))

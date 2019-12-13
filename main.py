@@ -1,11 +1,12 @@
-# import numpy as np
+import numpy as np
 import random
-from concepts.letter_arithmetic import LetterArithmetic
+from concepts.letter_addition import LetterAddition
 from teacher import Teacher
 
 random.seed(123)
+np.random.seed(123)
 
-concept = LetterArithmetic(6)
+concept = LetterAddition(6)
 
 teacher = Teacher(concept)
 

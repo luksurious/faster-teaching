@@ -57,7 +57,7 @@ class Belief:
                 else:
                     p_z = self.production_noise
             elif action_type == Actions.QUIZ:
-                if concept_val == int(response) and self.belief_state[i] > 0:
+                if response and concept_val == int(response) and self.belief_state[i] > 0:
                     # the true state of the learner doesn't change. but we can better infer which state he is in now
                     p_s = self.prior[i]
                     p_z = 1

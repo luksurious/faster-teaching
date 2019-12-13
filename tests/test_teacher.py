@@ -2,13 +2,13 @@ import random
 
 import pytest
 
-from concepts.letter_arithmetic import LetterArithmetic
+from concepts.letter_arithmetic import LetterAddition
 from teacher import Teacher
 
 
 def test_class_creation():
     random.seed(0)
-    concept = LetterArithmetic(6)
+    concept = LetterAddition(6)
     teacher = Teacher(concept)
 
     assert isinstance(teacher, Teacher)
@@ -16,7 +16,7 @@ def test_class_creation():
 
 def test_precompute():
     random.seed(0)
-    concept = LetterArithmetic(6)
+    concept = LetterAddition(6)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
     teacher = Teacher(concept)
 

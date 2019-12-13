@@ -37,9 +37,13 @@ class ConceptBase(ABC):
         return raw_result, output
 
     @abstractmethod
-    def evaluate_concept(self, action, concept):
+    def evaluate_concept(self, action, concept=None):
         pass
 
     @abstractmethod
     def gen_readable_format(self, result, show_answer=True):
+        pass
+
+    @abstractmethod
+    def get_rl_actions(self):
         pass
