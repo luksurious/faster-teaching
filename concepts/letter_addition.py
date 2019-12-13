@@ -10,7 +10,7 @@ from .concept_base import ConceptBase
 # problem: alphabetic arithmetic
 class LetterAddition(ConceptBase):
     def __init__(self, problem_len: int):
-        elements = {}
+        elements = np.zeros(problem_len)
         start = ord('A')
         # TODO start at 0 or 1?
         self.numbers = list(range(0, problem_len))
@@ -19,7 +19,7 @@ class LetterAddition(ConceptBase):
         assign_numbers = self.numbers.copy()
         for i in range(problem_len):
             number = random.sample(assign_numbers, 1)[0]
-            elements[chr(start + i)] = number
+            elements[i] = number
             assign_numbers.remove(number)
 
             self.letters.append(chr(start + i))
@@ -27,55 +27,45 @@ class LetterAddition(ConceptBase):
         self.item_values = elements
         self.equation_length = 2
 
-        all_number_combinations = list(itertools.permutations(self.numbers, len(self.item_values)))
-        all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
-        self.all_concepts = np.array(all_concepts)
+        all_number_combinations = list(itertools.permutations(self.numbers, problem_len))
+        # all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
+        self.all_concepts = np.array(all_number_combinations)
 
-        letter_combs = list(itertools.combinations(self.letters, 2))
+        letter_combs = list(itertools.combinations(range(problem_len), self.equation_length))
         self.letter_actions = list(itertools.product(letter_combs, Actions.all()))
 
-    def calc_pair(self, a: str, b: str, values=None):
-        if not values:
-            values = self.item_values
-
-        try:
-            value_a = values[a]
-            value_b = values[b]
-        except KeyError as err_val:
-            print("Invalid character given: %s" % err_val)
-            return None
-
-        return value_a + value_b
+    # def calc_pair(self, a: str, b: str, values=None):
+    #     if not values:
+    #         values = self.item_values
+    #
+    #     try:
+    #         value_a = values[a]
+    #         value_b = values[b]
+    #     except KeyError as err_val:
+    #         print("Invalid character given: %s" % err_val)
+    #         return None
+    #
+    #     return value_a + value_b
 
     def generate_equation(self, length: int = 2):
-        chars = random.sample(self.item_values.keys(), length)
+        chars = random.sample(range(len(self.letters)), length)
         # if only using addition, order does not matter, so we can reduce the possibilities
         chars = sorted(chars)
 
-        equation = []
-        for key in range(0, len(chars), 2):
-            a = chars[key]
-            b = chars[key + 1]
-            equation.append(a)
-            equation.append(b)
+        return chars
 
-        return equation
-
-    def evaluation_equation(self, equation, values=None):
+    def evaluate_equation(self, equation, values=None):
+        if values is None:
+            values = self.item_values
         result = 0
-        start_letter = equation[0]
-        for key in range(1, len(equation)):
-            b = equation[key]
-
-            result = self.calc_pair(start_letter, b, values)
-
-            start_letter = result
+        for letter_idx in equation:
+            result += values[letter_idx]
 
         return result
 
     def generate_example(self, alternative_concept=None):
         equation = self.generate_equation(self.equation_length)
-        result = self.evaluation_equation(equation, alternative_concept)
+        result = self.evaluate_equation(equation, alternative_concept)
 
         return equation, result
 
@@ -84,19 +74,21 @@ class LetterAddition(ConceptBase):
 
     def generate_quiz(self, alternative_concept=None):
         equation = self.generate_equation(self.equation_length)
-        result = self.evaluation_equation(equation, alternative_concept)
+        result = self.evaluate_equation(equation, alternative_concept)
 
         return equation, result
 
     def gen_readable_format(self, result, show_answer=True):
-        right_side = str(result[1])
+        right_side = str(int(result[1]))
         if show_answer is False:
             right_side = '?'
 
-        return " + ".join(result[0]) + " = " + right_side
+        letters = map(lambda i: self.letters[i], result[0])
+
+        return " + ".join(letters) + " = " + right_side
 
     def evaluate_concept(self, result, concept=None):
-        concept_val = self.evaluation_equation(result[0], concept)
+        concept_val = self.evaluate_equation(result[0], concept)
 
         return concept_val
 

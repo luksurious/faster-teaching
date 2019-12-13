@@ -20,8 +20,6 @@ class Teacher:
 
         self.gamma = 0.99
 
-        self.strategy = self.choose_best
-
         # for memoryless model
         self.transition_noise = 0.15
         self.production_noise = 0.019
@@ -34,17 +32,19 @@ class Teacher:
 
         self.concept_space = self.concept.get_concept_space()
 
+        self.strategy = self.choose_best
+
+    def setup(self, preplan_len: int = 2):
         # uniform prior distribution
         self.concept_space_size = len(self.concept_space)
         self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
-        # self.belief_state = self.prior_distribution.copy()
 
         self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept)
 
         # position of true concept
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
 
-        self.best_action_stack = self.plan_best_actions(2)
+        self.best_action_stack = self.plan_best_actions(preplan_len)
         print(self.best_action_stack)
 
     def teach(self):
@@ -133,7 +133,7 @@ class Teacher:
             "belief": self.belief,
             "children": []
         }
-        self.forward_plan(tree, count, 10)
+        self.forward_plan(tree, count)
 
         #self.print_plan_tree(tree)
 
@@ -156,7 +156,7 @@ class Teacher:
             print("%s Action: %s %s : %.2f" % (indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent+'..')
 
-    def forward_plan(self, parent, depth, sample_actions):
+    def forward_plan(self, parent, depth):
 
         if depth <= 0:
             # estimate value of leaf: based on the estimated probability that the student knows the correct concept
@@ -191,17 +191,16 @@ class Teacher:
             value = self.concept.evaluate_concept([equation])
             result = (equation, value)
 
-            # sample observations?
-
-            # example action
-            # # simulate belief change
             # estimate observation
             expected_obs = None
             if teaching_action != Actions.EXAMPLE:
                 # TODO is that correct?
-                believed_concept = np.random.choice(self.concept_space, p=parent["belief"].belief_state)
-                expected_obs = self.concept.evaluate_concept([equation], believed_concept)
+                # sample observations?
+                # believed_concept = random.choices(self.concept_space, weights=parent["belief"].belief_state)
+                believed_concept_id = np.random.choice(self.concept_space_size, p=parent["belief"].belief_state)
+                expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
 
+            # simulate belief change
             new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
             new_belief.update_belief(teaching_action, result, expected_obs)
 
@@ -214,7 +213,7 @@ class Teacher:
 
             # approximate expected state & belief
             # go deeper
-            val = self.forward_plan(new_node, depth-1, sample_actions)
+            val = self.forward_plan(new_node, depth-1)
             val = val * self.gamma + self.ACTION_COSTS[Actions.EXAMPLE]
             # propagate back up
             new_node["value"] = val

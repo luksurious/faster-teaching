@@ -9,6 +9,7 @@ np.random.seed(123)
 concept = LetterAddition(6)
 
 teacher = Teacher(concept)
+teacher.setup()
 
 if not teacher.teach():
     teacher.reveal_answer()

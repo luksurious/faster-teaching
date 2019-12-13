@@ -23,24 +23,29 @@ class Belief:
         new_belief = self.calc_unscaled_belief(action_type, result, response)
 
         # TODO does it make sense?
-        if sum(new_belief) == 0:
+        if np.sum(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
             print("Inconsistent quiz response")
             self.belief_state[:] = 1
             new_belief = self.calc_unscaled_belief(action_type, result, response)
 
-            if sum(new_belief) == 0:
+            if np.sum(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
                 new_belief = self.prior.copy()
 
-        new_belief /= sum(new_belief)
+        new_belief /= np.sum(new_belief)
 
         # is prior updated in every step??
         self.belief_state = new_belief
 
     def calc_unscaled_belief(self, action_type, result, response):
         new_belief = np.zeros_like(self.belief_state)
-        for i, concept in enumerate(self.concept.get_concept_space()):
+        concepts = self.concept.get_concept_space()
+
+        # test against original
+        # for i, concept in enumerate(self.concept.get_concept_space()):
+        for i in range(len(concepts)):
+            concept = concepts[i]
             concept_val = self.concept.evaluate_concept(result, concept)
 
             p_s = 0

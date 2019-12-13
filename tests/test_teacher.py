@@ -1,13 +1,15 @@
 import random
+import numpy as np
 
 import pytest
 
-from concepts.letter_arithmetic import LetterAddition
+from concepts.letter_addition import LetterAddition
 from teacher import Teacher
 
 
 def test_class_creation():
-    random.seed(0)
+    random.seed(123)
+    np.random.seed(123)
     concept = LetterAddition(6)
     teacher = Teacher(concept)
 
@@ -15,34 +17,40 @@ def test_class_creation():
 
 
 def test_precompute():
-    random.seed(0)
+    random.seed(123)
+    np.random.seed(123)
     concept = LetterAddition(6)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
     teacher = Teacher(concept)
+    teacher.setup(0)
 
     # initial belief uniformly distributed
-    tree = teacher.plan_best_actions(2)
-    print(tree)
+    tree = {
+        "belief": teacher.belief,
+        "children": []
+    }
+    teacher.forward_plan(tree, 3)
+    # print(tree)
     # one level tree
-    assert len(tree["children"]) == 15
+    assert len(tree["children"]) == 45
 
     expected_items = [
-        ['A', '+', 'B'],
-        ['A', '+', 'C'],
-        ['A', '+', 'D'],
-        ['A', '+', 'E'],
-        ['A', '+', 'F'],
-        ['B', '+', 'C'],
-        ['B', '+', 'D'],
-        ['B', '+', 'E'],
-        ['B', '+', 'F'],
-        ['C', '+', 'D'],
-        ['C', '+', 'E'],
-        ['C', '+', 'F'],
-        ['D', '+', 'E'],
-        ['D', '+', 'F'],
-        ['E', '+', 'F'],
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (0, 4),
+        (0, 5),
+        (1, 2),
+        (1, 3),
+        (1, 4),
+        (1, 5),
+        (2, 3),
+        (2, 4),
+        (2, 5),
+        (3, 4),
+        (3, 5),
+        (4, 5),
     ]
-    for i in range(len(tree["children"])):
-        child = tree["children"][i]
+    for i in range(0, len(expected_items)):
+        child = tree["children"][i*3]
         assert child['item'][0] == expected_items[i]
