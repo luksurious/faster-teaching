@@ -46,6 +46,7 @@ class Teacher:
         self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
 
         self.best_action_stack = self.plan_best_actions(3)
+        print(self.best_action_stack)
 
     def teach(self):
         shown_concepts = []
@@ -61,7 +62,7 @@ class Teacher:
                 print(self.concept.gen_readable_format(action_data))
             elif action_type == Actions.QUIZ:
                 print("Can you answer this quiz?")
-                response = input(self.concept.gen_readable_format(action_data))  # TODO handle string input
+                response = input(self.concept.gen_readable_format(action_data, False))  # TODO handle string input
 
                 correct = response == action_data[1]
             else:
@@ -137,17 +138,26 @@ class Teacher:
         }
         self.forward_plan(tree, count, 10)
 
+        #self.print_plan_tree(tree)
+
         # find optimal path
         actions = []
         parent = tree
         while len(parent["children"]) > 0:
-            if parent["min_idx"] < 0:
-                break
-            next_action_tree = parent["children"][ parent["min_idx"] ]
+            candidates = [el for el in parent["children"] if np.allclose([el["value"]], [parent["min_val"]])]
+
+            # next_action_tree = parent["children"][ parent["min_idx"] ]
+            next_action_tree = np.random.choice(candidates, 1)[0]
+
             actions.append((next_action_tree["action"], next_action_tree["item"][0], next_action_tree["item"][1]))
             parent = next_action_tree
 
         return actions
+
+    def print_plan_tree(self, parent, indent=''):
+        for item in parent["children"]:
+            print("%s Action: %s : %.2f" % (indent, self.concept.gen_readable_format(item["item"], True), item["value"]))
+            self.print_plan_tree(item, indent+'..')
 
     def forward_plan(self, parent, depth, sample_actions):
 
@@ -204,9 +214,9 @@ class Teacher:
             # approximate expected state & belief
             # go deeper
             val, idx = self.forward_plan(new_node, depth-1, sample_actions)
-            val = val * self.gamma
+            val = val * self.gamma + self.ACTION_COSTS[Actions.EXAMPLE]
             # propagate back up
-            new_node["value"] = val + self.ACTION_COSTS[Actions.EXAMPLE]
+            new_node["value"] = val
             new_node["min_idx"] = idx
 
             parent["children"].append(new_node)
