@@ -7,7 +7,7 @@ ActionResult = Tuple[any, str]
 class ConceptBase(ABC):
 
     @abstractmethod
-    def assess(self) -> bool:
+    def assess(self, learner) -> bool:
         return False
 
     @abstractmethod

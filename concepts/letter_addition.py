@@ -92,11 +92,11 @@ class LetterAddition(ConceptBase):
 
         return concept_val
 
-    def assess(self) -> bool:
+    def assess(self, learner) -> bool:
         guesses = []
         correct = True
         for index, item in enumerate(self.letters):
-            curr_guess = input("What is %s?" % item)
+            curr_guess = learner.answer((index, item))
             try:
                 curr_guess = int(curr_guess)
 

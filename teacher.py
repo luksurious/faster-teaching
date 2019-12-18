@@ -34,6 +34,13 @@ class Teacher:
 
         self.strategy = self.choose_random_action
 
+        self.concept_space_size = 0
+        self.prior_distribution = None
+        self.belief = None
+        self.true_concept_pos = -1
+        self.best_action_stack = []
+        self.learner = None
+
     def setup(self, preplan_len: int = 2):
         # uniform prior distribution
         self.concept_space_size = len(self.concept_space)
@@ -63,30 +70,29 @@ class Teacher:
 
             if action_type == Actions.EXAMPLE:
                 print("Let's see an example")
+                self.learner.see_example(action_data)
                 response = None
-                print(self.concept.gen_readable_format(action_data))
             elif action_type == Actions.QUIZ:
                 print("Can you answer this quiz?")
-                response = input(self.concept.gen_readable_format(action_data, False))
+                response = self.learner.see_quiz(action_data)
             else:
                 # Question with feedback
                 print("Question:")
-                response = input(self.concept.gen_readable_format(action_data, False))
+                response = self.learner.see_question(action_data)
 
-                correct = response == str(action_data[1])
-                if correct:
-                    print("Yes, that's correct")
-                else:
-                    print("Not quite, the correct answer is %d" % action_data[1])
+                correct = response == action_data[1]
+
+                self.learner.see_question_feedback(action_data, correct)
+
             self.belief.update_belief(action_type, action_data, response)
 
-            print("-- Current likely concepts: %d" % np.count_nonzero(
-                self.belief.belief_state > np.min(self.belief.belief_state)))
+            #print("-- Current likely concepts: %d" % np.count_nonzero(
+            #    self.belief.belief_state > np.min(self.belief.belief_state)))
 
-            print("-- Contains correct concept?",
-                  self.belief.belief_state[self.true_concept_pos] > np.min(self.belief.belief_state))
+            #print("-- Contains correct concept?",
+            #    self.belief.belief_state[self.true_concept_pos] > np.min(self.belief.belief_state))
 
-            input("Continue?")
+            self.learner.finish_action()
 
             if (action_num + 1) % self.learning_phase_len == 0:
                 shown_concepts = []
@@ -121,7 +127,7 @@ class Teacher:
     def assess(self):
         # assessment time
         print("Do you know the answers?")
-        correct = self.concept.assess()
+        correct = self.concept.assess(self.learner)
 
         if correct:
             print("Great! You learned all characters correctly")
@@ -236,3 +242,6 @@ class Teacher:
     def estimate_belief(self, belief: Belief):
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
         return (1 - belief.belief_state[self.true_concept_pos]) * 10 * min(self.ACTION_COSTS.values())
+
+    def enroll_learner(self, learner):
+        self.learner = learner
