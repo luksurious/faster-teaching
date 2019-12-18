@@ -95,12 +95,12 @@ class LetterAddition(ConceptBase):
     def assess(self) -> bool:
         guesses = []
         correct = True
-        for item in self.item_values:
+        for index, item in enumerate(self.letters):
             curr_guess = input("What is %s?" % item)
             try:
                 curr_guess = int(curr_guess)
 
-                if curr_guess != self.item_values[item]:
+                if curr_guess != self.item_values[index]:
                     correct = False
             except:
                 correct = False

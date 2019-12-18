@@ -12,6 +12,7 @@ class Belief:
 
         self.belief_state = belief_state
         self.prior = prior
+        self.start_prior = prior
         self.concept = concept
 
     def update_belief(self, action_type, result, response):
@@ -31,21 +32,22 @@ class Belief:
 
             if np.sum(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
-                new_belief = self.prior.copy()
+                new_belief = self.start_prior.copy()
 
         new_belief /= np.sum(new_belief)
 
         # is prior updated in every step??
+        #self.prior = self.belief_state
         self.belief_state = new_belief
 
     def calc_unscaled_belief(self, action_type, result, response):
         new_belief = np.zeros_like(self.belief_state)
-        concepts = self.concept.get_concept_space()
+        # concepts = self.concept.get_concept_space()
 
         # test against original
-        # for i, concept in enumerate(self.concept.get_concept_space()):
-        for i in range(len(concepts)):
-            concept = concepts[i]
+        for i, concept in enumerate(self.concept.get_concept_space()):
+        # for i in range(len(concepts)):
+        #     concept = concepts[i]
             concept_val = self.concept.evaluate_concept(result, concept)
 
             p_s = 0
@@ -65,7 +67,7 @@ class Belief:
                 if response and concept_val == int(response) and self.belief_state[i] > 0:
                     # the true state of the learner doesn't change. but we can better infer which state he is in now
                     p_s = self.prior[i]
-                    p_z = 1
+                    p_z = 1  # production noise?
             else:
                 # TODO: not sure about this, but otherwise it doesnt make sense
                 #  the observation is from the previous state, not from the next state

@@ -32,7 +32,7 @@ class Teacher:
 
         self.concept_space = self.concept.get_concept_space()
 
-        self.strategy = self.choose_best
+        self.strategy = self.choose_random_action
 
     def setup(self, preplan_len: int = 2):
         # uniform prior distribution
@@ -42,10 +42,16 @@ class Teacher:
         self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept)
 
         # position of true concept
-        self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
+        # self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
+        self.true_concept_pos = -1
+        true_concept = self.concept.get_true_concepts()
+        for i in range(len(self.concept_space)):
+            if np.all(self.concept_space[i] == true_concept):
+                self.true_concept_pos = i
+                break
 
         self.best_action_stack = self.plan_best_actions(preplan_len)
-        print(self.best_action_stack)
+        #print(self.best_action_stack)
 
     def teach(self):
         shown_concepts = []
@@ -67,17 +73,17 @@ class Teacher:
                 print("Question:")
                 response = input(self.concept.gen_readable_format(action_data, False))
 
-                correct = response == action_data[1]
+                correct = response == str(action_data[1])
                 if correct:
                     print("Yes, that's correct")
                 else:
                     print("Not quite, the correct answer is %d" % action_data[1])
             self.belief.update_belief(action_type, action_data, response)
 
-            print("Current likely concepts: %d" % np.count_nonzero(
+            print("-- Current likely concepts: %d" % np.count_nonzero(
                 self.belief.belief_state > np.min(self.belief.belief_state)))
 
-            print("Contains correct concept?",
+            print("-- Contains correct concept?",
                   self.belief.belief_state[self.true_concept_pos] > np.min(self.belief.belief_state))
 
             input("Continue?")

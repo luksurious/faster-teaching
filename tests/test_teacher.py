@@ -17,6 +17,8 @@ def test_class_creation():
 
 
 def test_precompute():
+    # profiling with 3 levels: 3:28m
+
     random.seed(123)
     np.random.seed(123)
     concept = LetterAddition(6)
