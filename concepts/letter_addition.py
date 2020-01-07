@@ -9,11 +9,15 @@ from .concept_base import ConceptBase
 
 # problem: alphabetic arithmetic
 class LetterAddition(ConceptBase):
-    def __init__(self, problem_len: int):
+    def __init__(self, problem_len: int, number_range: list = None):
         elements = np.zeros(problem_len)
         start = ord('A')
-        # TODO start at 0 or 1?
-        self.numbers = list(range(0, problem_len))
+
+        if number_range is None:
+            # TODO start at 0 or 1?
+            number_range = list(range(0, problem_len))
+
+        self.numbers = number_range
         self.letters = []
 
         assign_numbers = self.numbers.copy()

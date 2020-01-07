@@ -31,7 +31,7 @@ def test_precompute():
         "belief": teacher.belief,
         "children": []
     }
-    teacher.forward_plan(tree, 3)
+    teacher.forward_plan(tree, 3, [45]*3)
     # print(tree)
     # one level tree
     assert len(tree["children"]) == 45
@@ -56,3 +56,26 @@ def test_precompute():
     for i in range(0, len(expected_items)):
         child = tree["children"][i*3]
         assert child['item'][0] == expected_items[i]
+
+
+def test_planning2():
+    random.seed(123)
+    np.random.seed(123)
+    concept = LetterAddition(3)
+    # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
+    teacher = Teacher(concept)
+    teacher.setup(0)
+
+    # initial belief uniformly distributed
+    tree = {
+        "belief": teacher.belief,
+        "children": []
+    }
+    teacher.forward_plan(tree, 2, [9]*2)
+
+    print("")
+    print(concept.get_true_concepts())
+    teacher.print_plan_tree(tree)
+
+    print(teacher.find_optimal_action_path(tree))
+

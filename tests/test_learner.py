@@ -1,9 +1,9 @@
-from learners.learner import SimLearner
+from concepts.letter_addition import LetterAddition
+from learners.sim_learner import SimLearner
 
 
 def test_see_example():
-    learner = SimLearner(6)
+    concept = LetterAddition(6)
+    learner = SimLearner(concept, list(range(0, 7)))
 
-    pairs = learner.see_example(((0, 1), 6))
-
-    print(pairs)
+    learner.see_example(((0, 1), 10))

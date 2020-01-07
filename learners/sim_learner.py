@@ -9,15 +9,17 @@ from learners.base_learner import BaseLearner
 
 
 class SimLearner(BaseLearner):
-    def __init__(self, concept: ConceptBase):
+    def __init__(self, concept: ConceptBase, number_range: list):
         super().__init__(concept)
 
         self.verbose = True
         self.pause = 1
 
         self.problem_len = len(concept.get_true_concepts())
+        self.number_range = number_range
 
         # what should it be initialized?
+        # TODO: randomize?
         self.letter_values = [i for i in range(self.problem_len)]
 
         # should also the memoryless learner have a distribution over concepts?
@@ -57,18 +59,7 @@ class SimLearner(BaseLearner):
         return response
 
     def see_question(self, question):
-        if self.verbose:
-            print(self.concept.gen_readable_format(question, False))
-        time.sleep(self.pause)
-
-        response = self.self_evaluate(question[0])
-
-        if self.verbose:
-            print("I think it is %d" % response)
-
-        self.total_time += self.question_time
-
-        return response
+        return self.see_quiz(question)
 
     def see_question_feedback(self, question, correct):
         time.sleep(self.pause)
@@ -82,13 +73,16 @@ class SimLearner(BaseLearner):
         possible_pairs = []
         for i in range(int(example[1]) + 1):
             pair = (i, int(example[1]) - i)
-            if pair[0] >= self.problem_len or pair[1] >= self.problem_len:
+            if max(pair[0], pair[1]) > max(self.number_range):
                 continue
 
             if pair[0] == pair[1]:
                 continue
 
             possible_pairs.append(pair)
+
+        # print(possible_pairs)
+
         # pick randomly from possibilities?
         # prefer options with a match of current belief?
         pair = random.choice(possible_pairs)

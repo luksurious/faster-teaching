@@ -70,7 +70,8 @@ def test_belief_three_example_2iter():
                              action=Actions.EXAMPLE,
                              true=1,
                              response=None,
-                             expected=[0., 0.5, 0., 0.5, 0., 0.])
+                             # expected=[0., 0.5, 0., 0.5, 0., 0.])
+                             expected=[0., 1., 0., 0., 0., 0.])
 
 
 def test_belief_three_quiz_correct_with_uniform_prior():

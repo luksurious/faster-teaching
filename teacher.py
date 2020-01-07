@@ -14,9 +14,9 @@ class Teacher:
         Actions.QUESTION: 12.0
     }
 
-    def __init__(self, concept: ConceptBase, learning_phase_len: int = 3, max_actions: int = 40):
+    def __init__(self, concept: ConceptBase, learning_phase_len: int = 3, max_phases: int = 40):
         self.learning_phase_len = learning_phase_len
-        self.max_actions = max_actions
+        self.max_phases = max_phases
 
         self.gamma = 0.99
 
@@ -32,8 +32,8 @@ class Teacher:
 
         self.concept_space = self.concept.get_concept_space()
 
-        # self.strategy = self.choose_random_action
-        self.strategy = self.choose_best
+        self.strategy = self.choose_random_action
+        # self.strategy = self.choose_best
 
         self.concept_space_size = 0
         self.prior_distribution = None
@@ -51,7 +51,8 @@ class Teacher:
         self.concept_space_size = len(self.concept_space)
         self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
 
-        self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept)
+        self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept,
+                             verbose=self.verbose)
 
         # position of true concept
         # self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
@@ -68,7 +69,7 @@ class Teacher:
     def teach(self):
         shown_concepts = []
 
-        for action_num in range(self.max_actions):
+        for action_num in range(self.max_phases*3):
             action_type, equation, result = self.choose_action(shown_concepts)
 
             action_data = (equation, result)
@@ -152,6 +153,7 @@ class Teacher:
             return False
 
     def reveal_answer(self):
+        print("True answer:")
         print(self.concept.get_true_concepts())
 
     def plan_best_actions(self, count, samples):
@@ -230,7 +232,8 @@ class Teacher:
                 expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
 
             # simulate belief change
-            new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
+            new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept,
+                                verbose=self.verbose)
 
             if teaching_action != Actions.QUIZ:
                 new_belief.update_belief(teaching_action, result, expected_obs)

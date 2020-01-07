@@ -5,7 +5,7 @@ from concepts.concept_base import ConceptBase
 
 
 class Belief:
-    def __init__(self, belief_state, prior, concept: ConceptBase):
+    def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         # for memoryless model
         self.transition_noise = 0.15
         self.production_noise = 0.019
@@ -15,18 +15,24 @@ class Belief:
         self.start_prior = prior
         self.concept = concept
 
+        self.verbose = verbose
+
     def update_belief(self, action_type, result, response):
         # TODO should this be modeled inside the belief update?
         if action_type != Actions.QUIZ and np.random.random() <= self.transition_noise:
             # transition noise probability: no state change;
             return
 
+        # is prior updated in every step??
+        self.prior = self.belief_state
+
         new_belief = self.calc_unscaled_belief(action_type, result, response)
 
         # TODO does it make sense?
         if np.sum(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
-            print("Inconsistent quiz response")
+            if self.verbose:
+                print("Inconsistent quiz response")
             self.belief_state[:] = 1
             new_belief = self.calc_unscaled_belief(action_type, result, response)
 
@@ -36,18 +42,12 @@ class Belief:
 
         new_belief /= np.sum(new_belief)
 
-        # is prior updated in every step??
-        #self.prior = self.belief_state
         self.belief_state = new_belief
 
     def calc_unscaled_belief(self, action_type, result, response):
         new_belief = np.zeros_like(self.belief_state)
-        # concepts = self.concept.get_concept_space()
 
-        # test against original
         for i, concept in enumerate(self.concept.get_concept_space()):
-        # for i in range(len(concepts)):
-        #     concept = concepts[i]
             concept_val = self.concept.evaluate_concept(result, concept)
 
             p_s = 0
