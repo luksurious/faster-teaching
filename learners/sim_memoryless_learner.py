@@ -8,7 +8,7 @@ from concepts.concept_base import ConceptBase
 from learners.base_learner import BaseLearner
 
 
-class SimLearner(BaseLearner):
+class SimMemorylessLearner(BaseLearner):
     def __init__(self, concept: ConceptBase, number_range: list):
         super().__init__(concept)
 
@@ -87,24 +87,28 @@ class SimLearner(BaseLearner):
         # prefer options with a match of current belief?
         pair = random.choice(possible_pairs)
 
-        refill_idx = []
         for idx, val in enumerate(self.letter_values):
             if val == pair[0] or val == pair[1]:
-                refill_idx.append(idx)
                 self.letter_values[idx] = -1
-
-        num_reassign = []
-        if self.letter_values[example[0][0]] != -1:
-            num_reassign.append(self.letter_values[example[0][0]])
-        if self.letter_values[example[0][1]] != -1:
-            num_reassign.append(self.letter_values[example[0][1]])
 
         self.letter_values[example[0][0]] = pair[0]
         self.letter_values[example[0][1]] = pair[1]
 
+        refill_idx = []
+        num_reassign = np.array(self.number_range.copy())
+        for i, val in enumerate(self.letter_values):
+            if val > -1:
+                num_reassign[val] = -1
+            else:
+                refill_idx.append(i)
+        num_reassign = np.random.choice(num_reassign[num_reassign > -1], len(refill_idx), replace=False).tolist()
+
         for i in refill_idx:
             if self.letter_values[i] == -1:
                 self.letter_values[i] = num_reassign.pop(0)
+
+        # assert unique
+        assert len(set(self.letter_values)) == self.problem_len, "Non-unique values assigned: %s" % self.letter_values
 
         # print(self.letter_values)
 

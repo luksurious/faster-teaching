@@ -2,16 +2,21 @@ import numpy as np
 import random
 from concepts.letter_addition import LetterAddition
 from learners.human_learner import HumanLearner
-from learners.sim_learner import SimLearner
+from learners.sim_memoryless_learner import SimMemorylessLearner
 from teacher import Teacher
 import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import termtables as tt
 
 
-SINGLE = True
-VERBOSE = True
+SINGLE = False
+VERBOSE = False
+
+MODE_SIM = "simulation"
+MODE_MANUAL = "human"
+MODE = MODE_SIM
 
 global_time_start = time.time()
 
@@ -32,12 +37,14 @@ for i in range(50):
 
     concept = LetterAddition(problem_len)
 
-    learner = SimLearner(concept, number_range)
-    learner.pause = 0
-    learner.verbose = VERBOSE
-    # learner = HumanLearner(concept)
+    if MODE == MODE_SIM:
+        learner = SimMemorylessLearner(concept, number_range)
+        learner.pause = 0
+        learner.verbose = VERBOSE
+    else:
+        learner = HumanLearner(concept)
 
-    teacher = Teacher(concept, 3, 100)
+    teacher = Teacher(concept, 3, 200)
     teacher.verbose = VERBOSE
 
     setup_start = time.time()
@@ -96,6 +103,18 @@ if not SINGLE:
     sns.violinplot(y=time_history)
     plt.title("Average time to complete")
     plt.show()
+
+    learned_history = [np.argmin(errors) for errors in error_history]
+
+    np.set_printoptions(precision=2)
+    print("\nSome statistics")
+    print(tt.to_string([
+        ["Time"] + ["%.2f" % item
+                    for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
+
+        ["Phases"] + ["%.2f" % item
+                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
+    ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
 
 
 # teacher
