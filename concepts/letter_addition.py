@@ -92,9 +92,10 @@ class LetterAddition(ConceptBase):
 
         return concept_val
 
-    def assess(self, learner) -> bool:
+    def assess(self, learner) -> (bool, float):
         guesses = []
         correct = True
+        errors = 0
         for index, item in enumerate(self.letters):
             curr_guess = learner.answer((index, item))
             try:
@@ -102,11 +103,13 @@ class LetterAddition(ConceptBase):
 
                 if curr_guess != self.item_values[index]:
                     correct = False
+                    errors += 1
             except:
                 correct = False
+                errors += 1
             guesses.append(curr_guess)
 
-        return correct
+        return correct, errors
 
     def get_true_concepts(self):
         return self.item_values

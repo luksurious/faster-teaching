@@ -8,12 +8,12 @@ from concepts.concept_base import ConceptBase
 from learners.base_learner import BaseLearner
 
 
-PAUSE = 1
-
-
 class SimLearner(BaseLearner):
     def __init__(self, concept: ConceptBase):
         super().__init__(concept)
+
+        self.verbose = True
+        self.pause = 1
 
         self.problem_len = len(concept.get_true_concepts())
 
@@ -22,9 +22,16 @@ class SimLearner(BaseLearner):
 
         # should also the memoryless learner have a distribution over concepts?
 
+        self.total_time = 0
+
+        self.example_time = 7.0
+        self.quiz_time = 6.6
+        self.question_time = 12.0
+
     def see_example(self, example):
-        print(self.concept.gen_readable_format(example))
-        time.sleep(PAUSE)
+        if self.verbose:
+            print(self.concept.gen_readable_format(example))
+        time.sleep(self.pause)
 
         believed_answer = self.self_evaluate(example[0])
         if believed_answer == example[1]:
@@ -33,27 +40,42 @@ class SimLearner(BaseLearner):
         else:
             self.update_state(example)
 
+        self.total_time += self.example_time
+
     def see_quiz(self, quiz):
-        print(self.concept.gen_readable_format(quiz, False))
-        time.sleep(PAUSE)
+        if self.verbose:
+            print(self.concept.gen_readable_format(quiz, False))
+        time.sleep(self.pause)
+
         response = self.self_evaluate(quiz[0])
 
-        print("I think it is %d" % response)
+        if self.verbose:
+            print("I think it is %d" % response)
+
+        self.total_time += self.quiz_time
 
         return response
 
     def see_question(self, question):
-        print(self.concept.gen_readable_format(question, False))
-        time.sleep(PAUSE)
+        if self.verbose:
+            print(self.concept.gen_readable_format(question, False))
+        time.sleep(self.pause)
+
         response = self.self_evaluate(question[0])
-        print("I think it is %d" % response)
+
+        if self.verbose:
+            print("I think it is %d" % response)
+
+        self.total_time += self.question_time
 
         return response
 
     def see_question_feedback(self, question, correct):
-        time.sleep(PAUSE)
+        time.sleep(self.pause)
         if not correct:
-            print("Not quite, the correct answer is %d" % question[1])
+            if self.verbose:
+                print("Not quite, the correct answer is %d" % question[1])
+
             self.update_state(question)
 
     def update_state(self, example):
@@ -90,12 +112,15 @@ class SimLearner(BaseLearner):
             if self.letter_values[i] == -1:
                 self.letter_values[i] = num_reassign.pop(0)
 
+        # print(self.letter_values)
+
     def self_evaluate(self, equation):
         return self.letter_values[equation[0]] + self.letter_values[equation[1]]
 
     def answer(self, item):
         curr_guess = self.letter_values[item[0]]
 
-        print("I think %s is %d" % (item[1], curr_guess))
+        if self.verbose:
+            print("I think %s is %d" % (item[1], curr_guess))
 
         return curr_guess
