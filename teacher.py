@@ -165,6 +165,11 @@ class Teacher:
         #self.print_plan_tree(tree)
 
         # find optimal path
+        actions = self.find_optimal_action_path(tree)
+
+        return actions
+
+    def find_optimal_action_path(self, tree):
         actions = []
         parent = tree
         while len(parent["children"]) > 0:
@@ -183,35 +188,28 @@ class Teacher:
             print("%s Action: %s %s : %.2f" % (indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent+'..')
 
-    def forward_plan(self, parent, depth, sample_lens: list):
+    def forward_plan(self, parent, depth, sample_lens: list = None):
 
         if depth <= 0:
             # estimate value of leaf: based on the estimated probability that the student knows the correct concept
             return self.estimate_belief(parent["belief"])
 
-        # possible_paths = []
-
-        # for action_type, action in self.actions.items():
         # ## simulate actions
         # if action of type example or question with feedback is chosen, the state of the learner is expected
         # to transition to a state consistent with it; thus the new belief state is the uniform distribution
         # over all concepts consistent with the sample
 
-        # TODO since concept size is larger than equation size, should all combinations be evaluated or
-        #  just one? So for the same concepts there are many different combinations possible
-
-        # test all options
         combinations = self.concept.get_rl_actions()
 
-        sample_size = sample_lens[0]
+        if sample_lens:
+            sample_indices = random.sample(list(range(len(combinations))), k=sample_lens[0])
 
-        # TODO in the paper it is always talked about sampling actions,
-        #  but in the figure it samples items, and considers all actions, and it also makes more sense?
-        sample_indices = random.sample(list(range(len(combinations))), k=sample_size)
+            samples = [combinations[i] for i in sample_indices]
+        else:
+            samples = combinations
 
-        samples = [combinations[i] for i in sample_indices]
         # check all options until a certain depth
-        # samples = combinations
+
         #print("Checking depth %d with %d options" % (depth, len(samples)))
 
         min_costs = float('Inf')
@@ -233,7 +231,9 @@ class Teacher:
 
             # simulate belief change
             new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept)
-            new_belief.update_belief(teaching_action, result, expected_obs)
+
+            if teaching_action != Actions.QUIZ:
+                new_belief.update_belief(teaching_action, result, expected_obs)
 
             new_node = {
                 "belief": new_belief,
@@ -244,8 +244,8 @@ class Teacher:
 
             # approximate expected state & belief
             # go deeper
-            val = self.forward_plan(new_node, depth-1, sample_lens[1:])
-            val = val * self.gamma + self.ACTION_COSTS[Actions.EXAMPLE]
+            val = self.forward_plan(new_node, depth-1, sample_lens[1:] if sample_lens else None)
+            val = val * self.gamma + self.ACTION_COSTS[teaching_action]
             # propagate back up
             new_node["value"] = val
 

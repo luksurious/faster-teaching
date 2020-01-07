@@ -8,23 +8,23 @@ import time
 import matplotlib.pyplot as plt
 
 
-# random.seed(123)
-# np.random.seed(123)
+random.seed(123)
+np.random.seed(123)
 
 global_time_start = time.time()
 
 concept = LetterAddition(6)
 
-# learner = SimLearner(concept)
-# learner.pause = 0
-# learner.verbose = False
-learner = HumanLearner(concept)
+learner = SimLearner(concept)
+learner.pause = 0
+learner.verbose = True
+# learner = HumanLearner(concept)
 
 teacher = Teacher(concept)
 teacher.verbose = True
 
 setup_start = time.time()
-teacher.setup(2)
+teacher.setup(4)
 print("Setup took %.2f s" % (time.time() - setup_start))
 
 teacher.enroll_learner(learner)
