@@ -83,9 +83,10 @@ class LetterAddition(ConceptBase):
         return equation, result
 
     def gen_readable_format(self, result, show_answer=True):
-        right_side = str(int(result[1]))
-        if show_answer is False:
+        if show_answer is False or result[1] is None:
             right_side = '?'
+        else:
+            right_side = str(int(result[1]))
 
         letters = map(lambda i: self.letters[i], result[0])
 

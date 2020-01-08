@@ -13,7 +13,7 @@ class SimMemorylessLearner(BaseLearner):
         super().__init__(concept)
 
         self.verbose = True
-        self.pause = 1
+        self.pause = 0
 
         self.problem_len = len(concept.get_true_concepts())
         self.number_range = number_range
@@ -51,8 +51,7 @@ class SimMemorylessLearner(BaseLearner):
 
         response = self.self_evaluate(quiz[0])
 
-        if self.verbose:
-            print("I think it is %d" % response)
+        self.print("I think it is %d" % response)
 
         self.total_time += self.quiz_time
 
@@ -64,15 +63,41 @@ class SimMemorylessLearner(BaseLearner):
     def see_question_feedback(self, question, correct):
         time.sleep(self.pause)
         if not correct:
-            if self.verbose:
-                print("Not quite, the correct answer is %d" % question[1])
+            self.print("Not quite, the correct answer is %d" % question[1])
 
             self.update_state(question)
+        else:
+            self.print("Correct")
 
     def update_state(self, example):
+        possible_pairs = self.generate_possible_pairs(example[1])
+
+        # print(possible_pairs)
+
+        # TODO: prefer options with a match of current belief?
+        pair = random.choice(possible_pairs)
+
+        self.update_values_with_pair(example[0], pair)
+
+        self.fill_empty_mappings()
+
+        # assert unique
+        assert len(set(self.letter_values)) == self.problem_len, "Non-unique values assigned: %s" % self.letter_values
+
+    def update_values_with_pair(self, letters, pair):
+        # mark values from the pick as invalid
+        for idx, val in enumerate(self.letter_values):
+            if val == pair[0] or val == pair[1]:
+                self.letter_values[idx] = -1
+
+        # set new values from the picked pair
+        self.letter_values[letters[0]] = pair[0]
+        self.letter_values[letters[1]] = pair[1]
+
+    def generate_possible_pairs(self, result):
         possible_pairs = []
-        for i in range(int(example[1]) + 1):
-            pair = (i, int(example[1]) - i)
+        for i in range(int(result) + 1):
+            pair = (i, int(result) - i)
             if max(pair[0], pair[1]) > max(self.number_range):
                 continue
 
@@ -80,20 +105,17 @@ class SimMemorylessLearner(BaseLearner):
                 continue
 
             possible_pairs.append(pair)
+        return possible_pairs
 
-        # print(possible_pairs)
+    def fill_empty_mappings(self):
+        num_reassign, refill_idx = self.get_idx_val_to_fill()
 
-        # pick randomly from possibilities?
-        # prefer options with a match of current belief?
-        pair = random.choice(possible_pairs)
+        num_reassign = np.random.choice(num_reassign, len(refill_idx), replace=False).tolist()
+        for i in refill_idx:
+            if self.letter_values[i] == -1:
+                self.letter_values[i] = num_reassign.pop(0)
 
-        for idx, val in enumerate(self.letter_values):
-            if val == pair[0] or val == pair[1]:
-                self.letter_values[idx] = -1
-
-        self.letter_values[example[0][0]] = pair[0]
-        self.letter_values[example[0][1]] = pair[1]
-
+    def get_idx_val_to_fill(self):
         refill_idx = []
         num_reassign = np.array(self.number_range.copy())
         for i, val in enumerate(self.letter_values):
@@ -101,16 +123,10 @@ class SimMemorylessLearner(BaseLearner):
                 num_reassign[val] = -1
             else:
                 refill_idx.append(i)
-        num_reassign = np.random.choice(num_reassign[num_reassign > -1], len(refill_idx), replace=False).tolist()
 
-        for i in refill_idx:
-            if self.letter_values[i] == -1:
-                self.letter_values[i] = num_reassign.pop(0)
+        num_reassign = num_reassign[num_reassign > -1]
 
-        # assert unique
-        assert len(set(self.letter_values)) == self.problem_len, "Non-unique values assigned: %s" % self.letter_values
-
-        # print(self.letter_values)
+        return num_reassign, refill_idx
 
     def self_evaluate(self, equation):
         return self.letter_values[equation[0]] + self.letter_values[equation[1]]
@@ -118,7 +134,10 @@ class SimMemorylessLearner(BaseLearner):
     def answer(self, item):
         curr_guess = self.letter_values[item[0]]
 
-        if self.verbose:
-            print("I think %s is %d" % (item[1], curr_guess))
+        self.print("I think %s is %d" % (item[1], curr_guess))
 
         return curr_guess
+
+    def print(self, message):
+        if self.verbose:
+            print(message)

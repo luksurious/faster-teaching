@@ -27,5 +27,5 @@ class BaseLearner(ABC):
     def answer(self, item):
         pass
 
-    def finish_action(self):
+    def finish_action(self, action):
         pass

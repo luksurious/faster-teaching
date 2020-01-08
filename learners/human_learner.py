@@ -44,7 +44,7 @@ class HumanLearner(BaseLearner):
 
         return curr_guess
 
-    def finish_action(self):
+    def finish_action(self, action):
         input("Continue?")
 
         self.total_time += time.time() - self.action_start_time

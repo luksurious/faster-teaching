@@ -73,6 +73,7 @@ class Teacher:
             action_type, equation, result = self.choose_action(shown_concepts)
 
             action_data = (equation, result)
+            action_data_hidden = (equation, None)
 
             if action_type == Actions.EXAMPLE:
                 if self.verbose:
@@ -82,12 +83,13 @@ class Teacher:
             elif action_type == Actions.QUIZ:
                 if self.verbose:
                     print("Can you answer this quiz?")
-                response = self.learner.see_quiz(action_data)
+                response = self.learner.see_quiz(action_data_hidden)
+                action_data = action_data_hidden
             else:
                 # Question with feedback
                 if self.verbose:
                     print("Question:")
-                response = self.learner.see_question(action_data)
+                response = self.learner.see_question(action_data_hidden)
 
                 correct = response == action_data[1]
 
@@ -101,9 +103,9 @@ class Teacher:
             #print("-- Contains correct concept?",
             #    self.belief.belief_state[self.true_concept_pos] > np.min(self.belief.belief_state))
 
-            self.learner.finish_action()
+            self.learner.finish_action(action_data)
 
-            self.action_history.append((action_type, action_data))
+            self.action_history.append(action_data)
 
             if (action_num + 1) % self.learning_phase_len == 0:
                 shown_concepts = []

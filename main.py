@@ -2,6 +2,7 @@ import numpy as np
 import random
 from concepts.letter_addition import LetterAddition
 from learners.human_learner import HumanLearner
+from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
 from teacher import Teacher
 import time
@@ -38,7 +39,8 @@ for i in range(50):
     concept = LetterAddition(problem_len)
 
     if MODE == MODE_SIM:
-        learner = SimMemorylessLearner(concept, number_range)
+        # learner = SimMemorylessLearner(concept, number_range)
+        learner = SimDiscreteLearner(concept, number_range, 2)
         learner.pause = 0
         learner.verbose = VERBOSE
     else:
