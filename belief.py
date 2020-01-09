@@ -2,83 +2,66 @@ import numpy as np
 
 from actions import Actions
 from concepts.concept_base import ConceptBase
+from learner_models.model_base import ModelBase
 
 
 class Belief:
-    def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
-        # for memoryless model
-        self.transition_noise = 0.15
-        self.production_noise = 0.019
-
+    def __init__(self, belief_state, prior, concept: ConceptBase, model: ModelBase, verbose: bool = True):
         self.belief_state = belief_state
         self.prior = prior
         self.start_prior = prior
+        self.model = model
         self.concept = concept
+
+        self.states = concept.get_concept_space()
 
         self.verbose = verbose
 
     def update_belief(self, action_type, result, response):
         # TODO should this be modeled inside the belief update?
-        if action_type != Actions.QUIZ and np.random.random() <= self.transition_noise:
+        if action_type != Actions.QUIZ and np.random.random() <= self.model.transition_noise:
             # transition noise probability: no state change;
+            self.model.see_action(action_type, result)
             return
 
-        # is prior updated in every step??
-        self.prior = self.belief_state
+        # TODO is prior updated in every step?? It seems in the paper it refers to initial probability
+        #  but it is somewhat counter intuitive
+        # self.prior = self.belief_state
 
-        new_belief = self.calc_unscaled_belief(action_type, result, response)
+        new_belief = self.belief_update(action_type, result, response)
 
-        # TODO does it make sense?
+        # TODO does it make sense to reset the belief like this?
         if np.sum(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
             if self.verbose:
                 print("Inconsistent quiz response")
+
             self.belief_state[:] = 1
-            new_belief = self.calc_unscaled_belief(action_type, result, response)
+            new_belief = self.belief_update(action_type, result, response)
 
             if np.sum(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
                 new_belief = self.start_prior.copy()
 
+        # scale to 1
         new_belief /= np.sum(new_belief)
 
         self.belief_state = new_belief
 
-    def calc_unscaled_belief(self, action_type, result, response):
+        self.model.see_action(action_type, result)
+
+    def belief_update(self, action_type, action, observation):
         new_belief = np.zeros_like(self.belief_state)
 
-        for i, concept in enumerate(self.concept.get_concept_space()):
-            concept_val = self.concept.evaluate_concept(result, concept)
+        for idx, new_state in enumerate(self.states):
+            p_z = self.model.observation_model(observation, new_state, action_type, action)
 
-            p_s = 0
-            p_z = 0
-            if action_type == Actions.EXAMPLE:
-                # TODO do I need to calculate the probability of the learners concept
-                #  being already consistent with the new action somehow?
+            p_s = self.model.transition_model(new_state, idx, action_type, action)
 
-                # TODO does prior from the paper here refer to the initial prior,
-                #  or the prior previous to the current action?
-                p_s = self.prior[i]
-                if concept_val == result[1]:
-                    p_z = 1 - self.production_noise
-                else:
-                    p_z = self.production_noise
-            elif action_type == Actions.QUIZ:
-                if response and concept_val == int(response) and self.belief_state[i] > 0:
-                    # the true state of the learner doesn't change. but we can better infer which state he is in now
-                    p_s = self.prior[i]
-                    p_z = 1  # production noise?
-            else:
-                # TODO: not sure about this, but otherwise it doesnt make sense
-                #  the observation is from the previous state, not from the next state
-                #  type question with answer; or should somehow be taken into account that more likely now are
-                #  concepts with overlap in old and new state?
-                p_s = self.prior[i]
-                if concept_val == result[1]:
-                    p_z = 1 - self.production_noise
-                else:
-                    p_z = self.production_noise
+            new_belief[idx] = p_z * p_s
 
-            new_belief[i] = p_z * p_s
-
+        # self.belief_state = new_belief / np.sum(new_belief)
         return new_belief
+
+
+

@@ -12,7 +12,7 @@ import pandas as pd
 import termtables as tt
 
 
-SINGLE = False
+SINGLE = True
 VERBOSE = False
 
 MODE_SIM = "simulation"
@@ -30,9 +30,9 @@ problem_len = 6
 # 0-x: direct mapping
 # number_range = list(range(0, problem_len))
 # 0-x+1: one extra letter
-number_range = list(range(0, problem_len+1))
+number_range = list(range(0, problem_len))
 
-for i in range(50):
+for i in range(20):
     random.seed(123+i)
     np.random.seed(123+i)
 
@@ -50,7 +50,53 @@ for i in range(50):
     teacher.verbose = VERBOSE
 
     setup_start = time.time()
-    teacher.setup(0)
+    teacher.setup(4, 6)
+
+    # with 10 samples
+    # 3: 2s
+    # 4: 17s
+    # 5: 190s (~*10)
+    # 6: ~30min
+    # 7: ~5h
+    # 8: ~2d
+    # 9: ~20d
+
+    # with 9 samples
+    # 3: 1.4s
+    # 4: 12s
+    # 5: 117s (~*9)
+    # 6: ~18min
+    # 7: ~2.6h
+    # 8: ~1d
+    # 9: ~10d
+
+    # with 8 samples
+    # 3: 0.9s
+    # 4: 7.3s
+    # 5: 68s (~*8)
+    # 6: ~8min
+    # 7: ~1h
+    # 8: ~8h
+    # 9: ~3d
+
+    # with 7 samples
+    # 3: 0.6s
+    # 4: 4.5s
+    # 5: 33s (~*7)
+    # 6: ~3.5min
+    # 7: ~25min
+    # 8: ~3h
+    # 9: ~21h
+
+    # with 6 samples
+    # 3: 0.5s
+    # 4: 2.5s
+    # 5: 14s (~*6)
+    # 6: ~1.2min
+    # 7: ~7min
+    # 8: ~42min
+    # 9: ~4h
+
     if SINGLE:
         print("Setup took %.2f s" % (time.time() - setup_start))
     else:
@@ -75,6 +121,15 @@ for i in range(50):
         plt.plot(teacher.assessment_history)
         plt.title("Errors during assessment phase")
         plt.show()
+
+        action_types = [n[0].value for n in teacher.action_history]
+        p1 = plt.bar(range(len(action_types)), [1 if n == 1 else 0 for n in action_types])
+        p2 = plt.bar(range(len(action_types)), [1 if n == 2 else 0 for n in action_types])
+        p3 = plt.bar(range(len(action_types)), [1 if n == 3 else 0 for n in action_types])
+        plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+        plt.yticks([])
+        plt.show()
+
         break
 
     action_history.append(teacher.action_history)
@@ -106,6 +161,25 @@ if not SINGLE:
     plt.title("Average time to complete")
     plt.show()
 
+    max_actions = max([len(x) for x in action_history])
+    action_types_1 = np.zeros(max_actions)
+    action_types_2 = np.zeros(max_actions)
+    action_types_3 = np.zeros(max_actions)
+    for el in action_history:
+        for i, v in enumerate(el):
+            if v[0].value == 1:
+                action_types_1[i] += 1
+            elif v[0].value == 2:
+                action_types_2[i] += 1
+            elif v[0].value == 3:
+                action_types_3[i] += 1
+
+    p1 = plt.bar(range(max_actions), action_types_1)
+    p2 = plt.bar(range(max_actions), action_types_2)
+    p3 = plt.bar(range(max_actions), action_types_3)
+    plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+    plt.show()
+
     learned_history = [np.argmin(errors) for errors in error_history]
 
     np.set_printoptions(precision=2)
@@ -119,14 +193,8 @@ if not SINGLE:
     ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
 
 
-# teacher
-# - has learner model
-# - choose action: example, quiz, question with feedback
-# - evaluate response
-# - phases: 3 actions followed by assessment
-# - estimates believed concepts distribution
-
-
-# learner
-# - real with interface
-# - simulated
+# Notes:
+# - Planning does not return useful actions; sampling issue? (no examples samples);
+#   should it sample equations and then check all types? (although would not strictly be correct)
+# - Belief update questions
+# - Belief update does not scale in planning

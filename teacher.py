@@ -5,6 +5,8 @@ from belief import Belief
 from concepts.concept_base import ConceptBase
 
 from actions import Actions
+from learner_models.discrete import DiscreteMemoryModel
+from learner_models.memoryless import MemorylessModel
 
 
 class Teacher:
@@ -20,10 +22,6 @@ class Teacher:
 
         self.gamma = 0.99
 
-        # for memoryless model
-        self.transition_noise = 0.15
-        self.production_noise = 0.019
-
         self.concept = concept
 
         self.actions = {Actions.EXAMPLE: self.concept.generate_example,
@@ -32,8 +30,8 @@ class Teacher:
 
         self.concept_space = self.concept.get_concept_space()
 
-        self.strategy = self.choose_random_action
-        # self.strategy = self.choose_best
+        # self.strategy = self.choose_random_action
+        self.strategy = self.choose_best
 
         self.concept_space_size = 0
         self.prior_distribution = None
@@ -46,13 +44,17 @@ class Teacher:
         self.assessment_history = []
         self.verbose = False
 
-    def setup(self, preplan_len: int = 9):
+    def setup(self, preplan_len: int = 9, preplan_samples: int = 10):
         # uniform prior distribution
         self.concept_space_size = len(self.concept_space)
         self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
 
+        # model = MemorylessModel(self.concept.get_concept_space(), self.prior_distribution, self.concept)
+        model = DiscreteMemoryModel(self.concept.get_concept_space(), self.prior_distribution, self.concept,
+                                    memory_size=2)
+
         self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept,
-                             verbose=self.verbose)
+                             verbose=self.verbose, model=model)
 
         # position of true concept
         # self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
@@ -63,7 +65,7 @@ class Teacher:
                 self.true_concept_pos = i
                 break
 
-        self.best_action_stack = self.plan_best_actions(preplan_len, [10]*preplan_len)
+        self.best_action_stack = self.plan_best_actions(preplan_len, [preplan_samples]*preplan_len)
         #print(self.best_action_stack)
 
     def teach(self):
@@ -105,7 +107,7 @@ class Teacher:
 
             self.learner.finish_action(action_data)
 
-            self.action_history.append(action_data)
+            self.action_history.append((action_type, action_data))
 
             if (action_num + 1) % self.learning_phase_len == 0:
                 shown_concepts = []
@@ -216,6 +218,8 @@ class Teacher:
 
         #print("Checking depth %d with %d options" % (depth, len(samples)))
 
+        model_state = parent["belief"].model.get_state()
+
         min_costs = float('Inf')
 
         for pair in samples:
@@ -234,8 +238,9 @@ class Teacher:
                 expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
 
             # simulate belief change
+            parent["belief"].model.set_state(model_state)
             new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept,
-                                verbose=self.verbose)
+                                verbose=self.verbose, model=parent["belief"].model)
 
             if teaching_action != Actions.QUIZ:
                 new_belief.update_belief(teaching_action, result, expected_obs)
