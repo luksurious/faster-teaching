@@ -13,7 +13,7 @@ import termtables as tt
 
 
 SINGLE = True
-VERBOSE = False
+VERBOSE = True
 
 MODE_SIM = "simulation"
 MODE_MANUAL = "human"
@@ -32,25 +32,25 @@ problem_len = 6
 # 0-x+1: one extra letter
 number_range = list(range(0, problem_len))
 
-for i in range(20):
+for i in range(50):
     random.seed(123+i)
     np.random.seed(123+i)
 
     concept = LetterAddition(problem_len)
 
     if MODE == MODE_SIM:
-        # learner = SimMemorylessLearner(concept, number_range)
-        learner = SimDiscreteLearner(concept, number_range, 2)
+        learner = SimMemorylessLearner(concept, number_range)
+        # learner = SimDiscreteLearner(concept, number_range, 2)
         learner.pause = 0
         learner.verbose = VERBOSE
     else:
         learner = HumanLearner(concept)
 
-    teacher = Teacher(concept, 3, 200)
+    teacher = Teacher(concept, 3, 20)
     teacher.verbose = VERBOSE
 
     setup_start = time.time()
-    teacher.setup(4, 6)
+    teacher.setup(0, 3)
 
     # with 10 samples
     # 3: 2s

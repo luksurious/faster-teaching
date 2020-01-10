@@ -50,11 +50,11 @@ class Teacher:
         self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
 
         # model = MemorylessModel(self.concept.get_concept_space(), self.prior_distribution, self.concept)
-        model = DiscreteMemoryModel(self.concept.get_concept_space(), self.prior_distribution, self.concept,
-                                    memory_size=2)
+        # model = DiscreteMemoryModel(self.concept.get_concept_space(), self.prior_distribution, self.concept,
+        #                             memory_size=2)
 
-        self.belief = Belief(self.prior_distribution.copy(), self.prior_distribution, self.concept,
-                             verbose=self.verbose, model=model)
+        self.belief = MemorylessModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
+                             verbose=self.verbose)
 
         # position of true concept
         # self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
@@ -163,12 +163,11 @@ class Teacher:
     def plan_best_actions(self, count, samples):
         # TODO use faster array/list method
         tree = {
-            "belief": self.belief,
             "children": []
         }
-        self.forward_plan(tree, count, samples)
+        self.forward_plan(self.belief, tree, count, samples)
 
-        #self.print_plan_tree(tree)
+        # self.print_plan_tree(tree)
 
         # find optimal path
         actions = self.find_optimal_action_path(tree)
@@ -194,11 +193,11 @@ class Teacher:
             print("%s Action: %s %s : %.2f" % (indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent+'..')
 
-    def forward_plan(self, parent, depth, sample_lens: list = None):
+    def forward_plan(self, belief: Belief, parent, depth, sample_lens: list = None):
 
         if depth <= 0:
             # estimate value of leaf: based on the estimated probability that the student knows the correct concept
-            return self.estimate_belief(parent["belief"])
+            return self.estimate_belief(belief)
 
         # ## simulate actions
         # if action of type example or question with feedback is chosen, the state of the learner is expected
@@ -218,51 +217,65 @@ class Teacher:
 
         #print("Checking depth %d with %d options" % (depth, len(samples)))
 
-        model_state = parent["belief"].model.get_state()
+        obs_sample_count = 10
+
+        child_sample_len = sample_lens[1:] if sample_lens else None
+
+        model_state = belief.get_state().copy()
 
         min_costs = float('Inf')
 
-        for pair in samples:
-            equation = pair[0]
-            teaching_action = pair[1]
+        for equation in samples:
+            # equation = pair[0]
             value = self.concept.evaluate_concept([equation])
             result = (equation, value)
 
-            # estimate observation
-            expected_obs = None
-            if teaching_action != Actions.EXAMPLE:
-                # TODO is that correct?
-                # sample observations?
-                # believed_concept = random.choices(self.concept_space, weights=parent["belief"].belief_state)
-                believed_concept_id = np.random.choice(self.concept_space_size, p=parent["belief"].belief_state)
-                expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
+            for teaching_action in Actions.all():
 
-            # simulate belief change
-            parent["belief"].model.set_state(model_state)
-            new_belief = Belief(parent["belief"].belief_state.copy(), self.prior_distribution, self.concept,
-                                verbose=self.verbose, model=parent["belief"].model)
+                val = self.ACTION_COSTS[teaching_action]
 
-            if teaching_action != Actions.QUIZ:
-                new_belief.update_belief(teaching_action, result, expected_obs)
+                new_node = {
+                    "belief": belief.get_state().copy(),
+                    "children": [],
+                    "item": result,
+                    "action": teaching_action
+                }
 
-            new_node = {
-                "belief": new_belief,
-                "children": [],
-                "item": result,
-                "action": teaching_action
-            }
+                if teaching_action == Actions.EXAMPLE:
+                    # no observations
+                    expected_obs = None
 
-            # approximate expected state & belief
-            # go deeper
-            val = self.forward_plan(new_node, depth-1, sample_lens[1:] if sample_lens else None)
-            val = val * self.gamma + self.ACTION_COSTS[teaching_action]
-            # propagate back up
-            new_node["value"] = val
+                    belief.update_belief(teaching_action, result, expected_obs)
 
-            parent["children"].append(new_node)
+                    val += self.gamma * self.forward_plan(belief, new_node, depth - 1, child_sample_len)
 
-            if val < min_costs:
-                min_costs = val
+                    belief.set_state(model_state.copy())
+                else:
+
+                    for _ in range(obs_sample_count):
+                        # TODO is that correct? sample observations?
+                        #  alternatively: go through all possible observations and calc prob of obtaining them
+                        believed_concept_id = np.random.choice(self.concept_space_size, p=belief.belief_state)
+                        expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
+
+                        # simulate belief change
+
+                        # TODO correct?
+                        # if teaching_action != Actions.QUIZ:
+                        belief.update_belief(teaching_action, result, expected_obs)
+
+                        val += self.gamma / obs_sample_count * self.forward_plan(belief, new_node, depth - 1,
+                                                                                 child_sample_len)
+
+                        belief.set_state(model_state.copy())
+
+                # propagate back up
+                new_node["value"] = val
+
+                parent["children"].append(new_node)
+
+                if val < min_costs:
+                    min_costs = val
 
         parent["min_val"] = min_costs
 

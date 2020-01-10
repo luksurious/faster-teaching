@@ -13,11 +13,11 @@ class ModelBase(ABC):
         self.production_noise = 0
 
     @abstractmethod
-    def observation_model(self, observation, new_state, action_type, action):
+    def observation_model(self, observation, new_state, action_type, action, is_consistent):
         pass
 
     @abstractmethod
-    def transition_model(self, new_state, new_idx, action_type, action):
+    def transition_model(self, new_state, new_idx, action_type, action, is_consistent):
         pass
 
     @abstractmethod

@@ -1,3 +1,4 @@
+from belief import Belief
 from concepts.concept_base import ConceptBase
 from learner_models.model_base import ModelBase
 from actions import Actions
@@ -6,13 +7,13 @@ import math
 import numpy as np
 
 
-class MemorylessModel(ModelBase):
+class MemorylessModel(Belief):
 
-    def __init__(self, states, prior, concept: ConceptBase):
-        super().__init__(states, prior, concept)
+    def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
+        super().__init__(belief_state, prior, concept, verbose)
 
-        self.transition_noise = 0.15
-        self.production_noise = 0.019
+        self.transition_noise = 0  # 0.15
+        self.production_noise = 0  # 0.019
 
         self.state_matches = {}
 
@@ -26,7 +27,17 @@ class MemorylessModel(ModelBase):
                 # number of non-matching states per possible observation
                 self.state_matches[n] = (permutations * self.count_possible_pairs(n, max_number)) - len(self.states)
 
-    def observation_model(self, observation, new_state, action_type, action):
+        # pre-calculate state-action concept values
+        self.state_action_values = {}
+        self.pre_calc_state_values()
+
+    def pre_calc_state_values(self):
+        for action in self.concept.get_rl_actions():
+            self.state_action_values[action] = np.zeros(len(self.states))
+            for idx, state in enumerate(self.states):
+                self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state)
+
+    def observation_model(self, observation, new_state, action_type, action, concept_val):
         """
         Probability of seeing observation (i.e. response of the learner) in the (new) state given the taken action
         """
@@ -41,7 +52,7 @@ class MemorylessModel(ModelBase):
             return 1
 
         # quiz action: the observation is deterministic based on if it matches the state of the learner
-        if self.is_observation_consistent(observation, new_state, action):
+        if concept_val == observation:
             return 1 - self.production_noise
 
         # TODO do I need to scale it so that Sum[p(z|s,a)] = 1 ? i.e. determine how many illegal answers exist
@@ -49,23 +60,25 @@ class MemorylessModel(ModelBase):
         #  although the number is already super small; so maybe not needed?
         return self.production_noise  # / self.state_matches[observation]
 
-    def is_observation_consistent(self, observation, state, action):
-        return self.concept.evaluate_concept(action, state) == observation
-
-    def transition_model(self, new_state, new_idx, action_type, action):
+    def transition_model(self, new_state, new_idx, action_type, action, concept_val):
         """
         Probability of going to new state given an action (and current state)
         """
 
-        p_s = 0
-        # for idx2, state in enumerate(self.states):
-        #     b_s = self.belief_state[idx2]  # sums to 1 over all states
-        #     # new state is consistent with action
-        #     if self.concept.evaluate_concept(action, new_state) == action[1]:
-        #         p_s += self.prior[new_idx] * b_s  # TODO assumption: uniform prior, negligible
+        if action_type == Actions.QUIZ:
+            # no state change expected - but we can rule out states that do not match her response
+            # no need for a loop
+            return self.belief_state[new_idx]  # transition prob only to same state is 1, only b(s) left in formula
 
-        if self.concept.evaluate_concept(action, new_state) == action[1]:
-            p_s += self.prior[new_idx]  # TODO assumption: uniform prior, negligible
+        p_s = 0
+
+        if concept_val == action[1]:
+            b_s = self.belief_state
+            p_s = np.ones(len(self.states)) * self.prior[new_idx]  # default transition with prior probability
+            p_s[ self.state_action_values[action[0]] == action[1] ] = 0  # no transition from other consistent concepts
+            p_s[new_idx] = 1  # instead it stays at the same concept
+
+            p_s = np.sum(p_s * b_s)
 
         return p_s
 

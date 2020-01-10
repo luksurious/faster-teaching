@@ -8,7 +8,7 @@ class Actions(Enum):
 
     @staticmethod
     def all():
-        return [Actions.EXAMPLE, Actions.QUIZ, Actions.QUESTION]
+        return [Actions.EXAMPLE, Actions.QUIZ]  #, Actions.QUESTION]
 
     def __str__(self):
         return self._name_

@@ -20,13 +20,7 @@ class LetterAddition(ConceptBase):
         self.numbers = number_range
         self.letters = []
 
-        assign_numbers = self.numbers.copy()
-        for i in range(problem_len):
-            number = random.sample(assign_numbers, 1)[0]
-            elements[i] = number
-            assign_numbers.remove(number)
-
-            self.letters.append(chr(start + i))
+        self.assign_numbers(elements, problem_len, start)
 
         self.item_values = elements
         self.equation_length = 2
@@ -35,8 +29,19 @@ class LetterAddition(ConceptBase):
         # all_concepts = [{letter: comb[i] for i, letter in enumerate(self.letters)} for comb in all_number_combinations]
         self.all_concepts = np.array(all_number_combinations)
 
-        letter_combs = list(itertools.combinations(range(problem_len), self.equation_length))
-        self.letter_actions = list(itertools.product(letter_combs, Actions.all()))
+        self.letter_combs = list(itertools.combinations(range(problem_len), self.equation_length))
+        # self.letter_actions = list(itertools.product(letter_combs, Actions.all()))
+
+        self.possible_values = set([x[0] + x[1] for x in itertools.combinations(self.numbers, 2)])
+
+    def assign_numbers(self, elements, problem_len, start):
+        assign_numbers = self.numbers.copy()
+        for i in range(problem_len):
+            number = random.sample(assign_numbers, 1)[0]
+            elements[i] = number
+            assign_numbers.remove(number)
+
+            self.letters.append(chr(start + i))
 
     # def calc_pair(self, a: str, b: str, values=None):
     #     if not values:
@@ -95,7 +100,7 @@ class LetterAddition(ConceptBase):
     def evaluate_concept(self, result, concept=None):
         concept_val = self.evaluate_equation(result[0], concept)
 
-        return concept_val
+        return int(concept_val)
 
     def assess(self, learner) -> (bool, float):
         guesses = []
@@ -122,5 +127,8 @@ class LetterAddition(ConceptBase):
     def get_concept_space(self):
         return self.all_concepts
 
-    def get_rl_actions(self):
-        return self.letter_actions
+    def get_rl_actions(self, sample_count=None):
+        return self.letter_combs
+
+    def get_observation_space(self):
+        return self.possible_values

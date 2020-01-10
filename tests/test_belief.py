@@ -6,6 +6,7 @@ from actions import Actions
 from belief import Belief
 from concepts.concept_base import ConceptBase, ActionResult
 from concepts.letter_addition import LetterAddition
+from learner_models.memoryless import MemorylessModel
 
 
 def test_belief_trivial():
@@ -71,7 +72,7 @@ def test_belief_three_example_2iter():
                              true=1,
                              response=None,
                              # expected=[0., 0.5, 0., 0.5, 0., 0.])
-                             expected=[0., 1., 0., 0., 0., 0.])
+                             expected=[0., .875, 0., 0.125, 0., 0.])
 
 
 def test_belief_three_quiz_correct_with_uniform_prior():
@@ -200,7 +201,9 @@ def create_test_belief(concept, cur_belief=None):
     if cur_belief is None:
         cur_belief = prior.copy()
 
-    belief = Belief(cur_belief, prior, concept)
+    # model = MemorylessModel(concept.get_concept_space(), prior, concept)
+
+    belief = MemorylessModel(cur_belief, prior, concept)
     belief.transition_noise = 0
     belief.production_noise = 0
     return belief
