@@ -12,8 +12,8 @@ class MemorylessModel(Belief):
     def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         super().__init__(belief_state, prior, concept, verbose)
 
-        self.transition_noise = 0  # 0.15
-        self.production_noise = 0  # 0.019
+        self.transition_noise = 0.15
+        self.production_noise = 0.019
 
         self.state_matches = {}
 

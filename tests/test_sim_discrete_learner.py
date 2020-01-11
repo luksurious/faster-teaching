@@ -44,7 +44,7 @@ def test_readjustment_needed():
     learner.finish_action(((3, 4), 9))
     assert learner.letter_values == [0, 1, 2, 3, 6, 5]
 
-    learner.see_question(((2, 5), None))  # C+F = ?
+    learner.see_question_question(((2, 5), None))  # C+F = ?
     learner.see_question_feedback(((2, 5), 3), False)
     learner.finish_action(((2, 5), 3))
     assert learner.letter_values == [0, 4, 1, 3, 6, 2]
@@ -57,7 +57,7 @@ def test_readjustment_needed():
     learner.finish_action(((2, 4), None))
     assert learner.letter_values == [0, 4, 2, 3, 6, 1]
 
-    learner.see_question(((1, 5), None))  # B+F = ?
+    learner.see_question_question(((1, 5), None))  # B+F = ?
     learner.see_question_feedback(((1, 5), 5), True)
     learner.finish_action(((1, 5), 5))
     assert learner.letter_values == [0, 4, 2, 3, 6, 1]

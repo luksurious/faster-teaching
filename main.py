@@ -46,11 +46,17 @@ for i in range(50):
     else:
         learner = HumanLearner(concept)
 
-    teacher = Teacher(concept, 3, 20)
+    teacher = Teacher(concept, 3, 40)
     teacher.verbose = VERBOSE
 
     setup_start = time.time()
-    teacher.setup(0, 3)
+    teacher.setup(2, 6)
+
+    # New data:
+    # - 3*6
+    #   448.44 s (observation sampling)
+    #   180.21 s (all observations and skip 0; no epsilon)
+    #   344.21 s (all observations, with epsilon) - no convergence - deteriorated to quizzes
 
     # with 10 samples
     # 3: 2s
@@ -108,7 +114,7 @@ for i in range(50):
         teacher.reveal_answer()
         print("# Concept not learned in expected time")
         print("Last guess:")
-        print(learner.letter_values)
+        print(learner.concept_belief)
 
     if SINGLE:
         print("Time taken: %.2f" % learner.total_time)

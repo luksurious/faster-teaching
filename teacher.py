@@ -91,7 +91,7 @@ class Teacher:
                 # Question with feedback
                 if self.verbose:
                     print("Question:")
-                response = self.learner.see_question(action_data_hidden)
+                response = self.learner.see_question_question(action_data_hidden)
 
                 correct = response == action_data[1]
 
@@ -204,14 +204,7 @@ class Teacher:
         # to transition to a state consistent with it; thus the new belief state is the uniform distribution
         # over all concepts consistent with the sample
 
-        combinations = self.concept.get_rl_actions()
-
-        if sample_lens:
-            sample_indices = random.sample(list(range(len(combinations))), k=sample_lens[0])
-
-            samples = [combinations[i] for i in sample_indices]
-        else:
-            samples = combinations
+        samples = self.sample_planning_items(sample_lens)
 
         # check all options until a certain depth
 
@@ -221,14 +214,14 @@ class Teacher:
 
         child_sample_len = sample_lens[1:] if sample_lens else None
 
+        # save state to reset to later
         model_state = belief.get_state().copy()
 
         min_costs = float('Inf')
 
-        for equation in samples:
-            # equation = pair[0]
-            value = self.concept.evaluate_concept([equation])
-            result = (equation, value)
+        for item in samples:
+            value = self.concept.evaluate_concept([item])
+            result = (item, value)
 
             for teaching_action in Actions.all():
 
@@ -251,20 +244,25 @@ class Teacher:
 
                     belief.set_state(model_state.copy())
                 else:
+                    # TODO is that correct? sample observations?
+                    #  alternatively: go through all possible observations and calc prob of obtaining them
+                    # for _ in range(obs_sample_count):
+                    #     pass
+                    for expected_obs in self.concept.get_observation_space():
+                        # believed_concept_id = np.random.choice(self.concept_space_size, p=belief.belief_state)
+                        # expected_obs = self.concept.evaluate_concept([item], self.concept_space[believed_concept_id])
 
-                    for _ in range(obs_sample_count):
-                        # TODO is that correct? sample observations?
-                        #  alternatively: go through all possible observations and calc prob of obtaining them
-                        believed_concept_id = np.random.choice(self.concept_space_size, p=belief.belief_state)
-                        expected_obs = self.concept.evaluate_concept([equation], self.concept_space[believed_concept_id])
+                        concepts_w_obs = belief.concept_val_cache[result] == expected_obs
+                        obs_prob = np.sum(belief.belief_state[concepts_w_obs])
 
-                        # simulate belief change
+                        if obs_prob == 0:
+                            continue
 
-                        # TODO correct?
-                        # if teaching_action != Actions.QUIZ:
                         belief.update_belief(teaching_action, result, expected_obs)
 
-                        val += self.gamma / obs_sample_count * self.forward_plan(belief, new_node, depth - 1,
+                        # val += self.gamma / obs_sample_count * self.forward_plan(belief, new_node, depth - 1,
+                        #                                                          child_sample_len)
+                        val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1,
                                                                                  child_sample_len)
 
                         belief.set_state(model_state.copy())
@@ -279,12 +277,21 @@ class Teacher:
 
         parent["min_val"] = min_costs
 
-        # if self.verbose and depth > 1:
-        #     print("Finished level %d" % depth)
-
         return min_costs
 
+    def sample_planning_items(self, sample_lens):
+        combinations = self.concept.get_rl_actions()
+        if sample_lens:
+            sample_indices = random.sample(list(range(len(combinations))), k=sample_lens[0])
+
+            samples = [combinations[i] for i in sample_indices]
+        else:
+            samples = combinations
+
+        return samples
+
     def estimate_belief(self, belief: Belief):
+        # TODO move to concept
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
         return (1 - belief.belief_state[self.true_concept_pos]) * 10 * min(self.ACTION_COSTS.values())
 

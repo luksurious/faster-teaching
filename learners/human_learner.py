@@ -22,7 +22,7 @@ class HumanLearner(BaseLearner):
         response = input(self.concept.gen_readable_format(quiz, False))
         return response
 
-    def see_question(self, question):
+    def see_question_question(self, question):
         self.action_start_time = time.time()
         # Question with feedback
         response = input(self.concept.gen_readable_format(question, False))

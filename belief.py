@@ -23,6 +23,8 @@ class Belief(ABC):
 
         self.verbose = verbose
 
+        self.concept_val_cache = {}
+
     def update_belief(self, action_type, result, response):
         # TODO should this be modeled inside the belief update?
         # transition noise probability: no state change;
@@ -70,7 +72,7 @@ class Belief(ABC):
         new_belief = np.zeros_like(self.belief_state)
 
         for idx, new_state in enumerate(self.states):
-            concept_val = self.concept.evaluate_concept(action, new_state)
+            concept_val = self.get_concept_val(action, idx, new_state)
 
             p_z = self.observation_model(observation, new_state, action_type, action, concept_val)
 
@@ -81,8 +83,18 @@ class Belief(ABC):
 
             new_belief[idx] = p_z * p_s
 
-        # self.belief_state = new_belief / np.sum(new_belief)
         return new_belief
+
+    def get_concept_val(self, action, idx, new_state):
+        if self.concept_val_cache.get(action, None) is None:
+            self.concept_val_cache[action] = np.zeros(len(self.states))
+
+        concept_val = self.concept_val_cache[action][idx]
+        if concept_val == 0:
+            concept_val = self.concept.evaluate_concept(action, new_state)
+            self.concept_val_cache[action][idx] = concept_val
+
+        return concept_val
 
     @abstractmethod
     def observation_model(self, observation, new_state, action_type, action, concept_val):

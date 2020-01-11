@@ -16,7 +16,7 @@ class BaseLearner(ABC):
         pass
 
     @abstractmethod
-    def see_question(self, question):
+    def see_question_question(self, question):
         pass
 
     @abstractmethod
