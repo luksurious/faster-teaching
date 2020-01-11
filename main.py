@@ -39,8 +39,8 @@ for i in range(50):
     concept = LetterAddition(problem_len)
 
     if MODE == MODE_SIM:
-        learner = SimMemorylessLearner(concept, number_range)
-        # learner = SimDiscreteLearner(concept, number_range, 2)
+        # learner = SimMemorylessLearner(concept, number_range)
+        learner = SimDiscreteLearner(concept, number_range, 2)
         learner.pause = 0
         learner.verbose = VERBOSE
     else:
