@@ -17,7 +17,8 @@ def test_check_production_noise():
 
     belief = np.zeros_like(prior_distribution)
     for idx, new_state in enumerate(state_space):
-        p_z = model.observation_model(3, new_state, Actions.QUIZ, ((0, 1), 1))
+        concept_val = concept.evaluate_concept(((0, 1), 1), new_state)
+        p_z = model.observation_model(3, new_state, Actions.QUIZ, ((0, 1), 1), concept_val)
 
         p_s = 1
 

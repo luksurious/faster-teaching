@@ -1,18 +1,17 @@
-from belief import Belief
+from learner_models.base_belief import BaseBelief
 from concepts.concept_base import ConceptBase
-from learner_models.model_base import ModelBase
 from actions import Actions
 
 import math
 import numpy as np
 
 
-class MemorylessModel(Belief):
+class MemorylessModel(BaseBelief):
 
     def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         super().__init__(belief_state, prior, concept, verbose)
 
-        self.transition_noise = 0.15
+        self.transition_noise = 0.15 / self.prior_pos_len
         self.production_noise = 0.019
 
         self.state_matches = {}
@@ -73,12 +72,20 @@ class MemorylessModel(Belief):
         p_s = 0
 
         if concept_val == action[1]:
-            b_s = self.belief_state
-            p_s = np.ones(len(self.states)) * self.prior[new_idx]  # default transition with prior probability
-            p_s[ self.state_action_values[action[0]] == action[1] ] = 0  # no transition from other consistent concepts
-            p_s[new_idx] = 1  # instead it stays at the same concept
+            p_s = self.calculate_ps(action, new_idx)
 
-            p_s = np.sum(p_s * b_s)
+        return p_s
+
+    def calculate_ps(self, action, new_idx):
+        b_s = self.belief_state
+
+        noisy_prior = max(0, self.prior[new_idx] - self.transition_noise)
+
+        p_s = np.ones(len(self.states)) * noisy_prior  # default transition with prior probability
+        consistent_state_filter = self.state_action_values[action[0]] == action[1]
+        p_s[consistent_state_filter] = 0  # no transition from other consistent concepts
+        p_s[new_idx] = 1  # instead it stays at the same concept
+        p_s = np.sum(p_s * b_s)
 
         return p_s
 

@@ -3,21 +3,21 @@ from abc import ABC, abstractmethod
 
 from actions import Actions
 from concepts.concept_base import ConceptBase
-from learner_models.model_base import ModelBase
 
 
 DEBUG = False
 
 
-class Belief(ABC):
+class BaseBelief(ABC):
     def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         self.belief_state = belief_state
         self.prior = prior
-        self.start_prior = prior
         self.concept = concept
 
         self.transition_noise = 0
         self.production_noise = 0
+
+        self.prior_pos_len = np.count_nonzero(self.prior)
 
         self.states = concept.get_concept_space()
 
@@ -28,7 +28,8 @@ class Belief(ABC):
     def update_belief(self, action_type, result, response):
         # TODO should this be modeled inside the belief update?
         # transition noise probability: no state change;
-        if action_type == Actions.QUIZ or np.random.random() >= self.transition_noise:
+        # if action_type == Actions.QUIZ or np.random.random() >= self.transition_noise:
+        if True:
             # TODO is prior updated in every step?? It seems in the paper it refers to initial probability
             #  but it is somewhat counter intuitive
             # self.prior = self.belief_state
@@ -108,7 +109,7 @@ class Belief(ABC):
         pass
 
     def get_state(self):
-        return self.belief_state
+        return self.belief_state.copy()
 
     def set_state(self, state):
-        self.belief_state = state
+        self.belief_state = state.copy()

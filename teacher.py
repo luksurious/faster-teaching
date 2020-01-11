@@ -1,12 +1,12 @@
 import numpy as np
 import random
 
-from belief import Belief
 from concepts.concept_base import ConceptBase
 
 from actions import Actions
-from learner_models.discrete import DiscreteMemoryModel
+from learner_models.base_belief import BaseBelief
 from learner_models.memoryless import MemorylessModel
+from learner_models.discrete import DiscreteMemoryModel
 
 
 class Teacher:
@@ -50,14 +50,13 @@ class Teacher:
         self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
 
         # model = MemorylessModel(self.concept.get_concept_space(), self.prior_distribution, self.concept)
-        # model = DiscreteMemoryModel(self.concept.get_concept_space(), self.prior_distribution, self.concept,
-        #                             memory_size=2)
 
-        self.belief = MemorylessModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
-                             verbose=self.verbose)
+        # self.belief = MemorylessModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
+        #                      verbose=self.verbose)
+        self.belief = DiscreteMemoryModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
+                                          memory_size=2, verbose=self.verbose)
 
         # position of true concept
-        # self.true_concept_pos = np.argmax(self.concept_space == self.concept.get_true_concepts())
         self.true_concept_pos = -1
         true_concept = self.concept.get_true_concepts()
         for i in range(len(self.concept_space)):
@@ -66,7 +65,6 @@ class Teacher:
                 break
 
         self.best_action_stack = self.plan_best_actions(preplan_len, [preplan_samples]*preplan_len)
-        #print(self.best_action_stack)
 
     def teach(self):
         shown_concepts = []
@@ -193,7 +191,7 @@ class Teacher:
             print("%s Action: %s %s : %.2f" % (indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent+'..')
 
-    def forward_plan(self, belief: Belief, parent, depth, sample_lens: list = None):
+    def forward_plan(self, belief: BaseBelief, parent, depth, sample_lens: list = None):
 
         if depth <= 0:
             # estimate value of leaf: based on the estimated probability that the student knows the correct concept
@@ -215,7 +213,7 @@ class Teacher:
         child_sample_len = sample_lens[1:] if sample_lens else None
 
         # save state to reset to later
-        model_state = belief.get_state().copy()
+        model_state = belief.get_state()
 
         min_costs = float('Inf')
 
@@ -228,7 +226,7 @@ class Teacher:
                 val = self.ACTION_COSTS[teaching_action]
 
                 new_node = {
-                    "belief": belief.get_state().copy(),
+                    # "belief": belief.get_state(),
                     "children": [],
                     "item": result,
                     "action": teaching_action
@@ -242,7 +240,7 @@ class Teacher:
 
                     val += self.gamma * self.forward_plan(belief, new_node, depth - 1, child_sample_len)
 
-                    belief.set_state(model_state.copy())
+                    belief.set_state(model_state)
                 else:
                     # TODO is that correct? sample observations?
                     #  alternatively: go through all possible observations and calc prob of obtaining them
@@ -265,7 +263,7 @@ class Teacher:
                         val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1,
                                                                                  child_sample_len)
 
-                        belief.set_state(model_state.copy())
+                        belief.set_state(model_state)
 
                 # propagate back up
                 new_node["value"] = val
@@ -290,7 +288,7 @@ class Teacher:
 
         return samples
 
-    def estimate_belief(self, belief: Belief):
+    def estimate_belief(self, belief: BaseBelief):
         # TODO move to concept
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
         return (1 - belief.belief_state[self.true_concept_pos]) * 10 * min(self.ACTION_COSTS.values())
