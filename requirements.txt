@@ -1,3 +1,4 @@
+termtables
 pandas
 seaborn
 matplotlib

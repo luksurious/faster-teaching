@@ -1,8 +1,6 @@
 import random
 import numpy as np
 
-import pytest
-
 from concepts.letter_addition import LetterAddition
 from teacher import Teacher
 
@@ -68,10 +66,9 @@ def test_planning2():
 
     # initial belief uniformly distributed
     tree = {
-        "belief": teacher.belief,
         "children": []
     }
-    teacher.forward_plan(tree, 2, [9]*2)
+    teacher.forward_plan(teacher.belief, tree, 2, [2]*2)
 
     print("")
     print(concept.get_true_concepts())

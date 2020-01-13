@@ -16,7 +16,7 @@ class BaseLearner(ABC):
         pass
 
     @abstractmethod
-    def see_question(self, question):
+    def see_question_question(self, question):
         pass
 
     @abstractmethod
@@ -27,5 +27,5 @@ class BaseLearner(ABC):
     def answer(self, item):
         pass
 
-    def finish_action(self):
+    def finish_action(self, action):
         pass

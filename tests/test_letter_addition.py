@@ -1,8 +1,6 @@
 import random
 import numpy as np
 
-import pytest
-
 from concepts.letter_addition import LetterAddition
 
 

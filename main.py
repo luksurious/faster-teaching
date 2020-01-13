@@ -1,17 +1,24 @@
 import numpy as np
 import random
 from concepts.letter_addition import LetterAddition
+from learner_models.discrete import DiscreteMemoryModel
+from learner_models.memoryless import MemorylessModel
 from learners.human_learner import HumanLearner
-from learners.sim_learner import SimLearner
+from learners.sim_discrete_learner import SimDiscreteLearner
+from learners.sim_memoryless_learner import SimMemorylessLearner
 from teacher import Teacher
 import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
+import termtables as tt
 
 SINGLE = True
 VERBOSE = True
+
+MODE_SIM = "simulation"
+MODE_MANUAL = "human"
+MODE = MODE_SIM
 
 global_time_start = time.time()
 
@@ -24,24 +31,93 @@ problem_len = 6
 # 0-x: direct mapping
 # number_range = list(range(0, problem_len))
 # 0-x+1: one extra letter
-number_range = list(range(0, problem_len+1))
+number_range = list(range(0, problem_len))
 
-for i in range(50):
-    random.seed(123+i)
-    np.random.seed(123+i)
+for i in range(20):
+    random.seed(123 + i)
+    np.random.seed(123 + i)
 
     concept = LetterAddition(problem_len)
 
-    learner = SimLearner(concept, number_range)
-    learner.pause = 0
-    learner.verbose = VERBOSE
-    # learner = HumanLearner(concept)
+    prior_distribution = np.ones(len(concept.get_concept_space()))
+    prior_distribution /= np.sum(prior_distribution)
 
-    teacher = Teacher(concept, 3, 100)
+    if MODE == MODE_SIM:
+        # learner = SimMemorylessLearner(concept, number_range, prior_distribution)
+        learner = SimDiscreteLearner(concept, number_range, prior_distribution, 2)
+        learner.pause = 0
+        learner.verbose = VERBOSE
+        learner.mode = "stoch"
+        # learner.production_noise = 0
+        # learner.transition_noise = 0
+    else:
+        learner = HumanLearner(concept)
+
+    # belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=VERBOSE)
+    belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
+                                 memory_size=2, verbose=VERBOSE)
+    # belief.transition_noise = 0
+    # belief.production_noise = 0
+
+    teacher = Teacher(concept, belief, 3, 40)
     teacher.verbose = VERBOSE
+    teacher.plan_horizon = 2
+    teacher.plan_samples = [6, 7]
 
     setup_start = time.time()
-    teacher.setup(0)
+    teacher.setup(0, 5)
+
+    # New data:
+    # - 3*6
+    #   448.44 s (observation sampling)
+    #   180.21 s (all observations and skip 0; no epsilon)
+    #   344.21 s (all observations, with epsilon) - no convergence - deteriorated to quizzes
+
+    # with 10 samples
+    # 3: 2s
+    # 4: 17s
+    # 5: 190s (~*10)
+    # 6: ~30min
+    # 7: ~5h
+    # 8: ~2d
+    # 9: ~20d
+
+    # with 9 samples
+    # 3: 1.4s
+    # 4: 12s
+    # 5: 117s (~*9)
+    # 6: ~18min
+    # 7: ~2.6h
+    # 8: ~1d
+    # 9: ~10d
+
+    # with 8 samples
+    # 3: 0.9s
+    # 4: 7.3s
+    # 5: 68s (~*8)
+    # 6: ~8min
+    # 7: ~1h
+    # 8: ~8h
+    # 9: ~3d
+
+    # with 7 samples
+    # 3: 0.6s
+    # 4: 4.5s
+    # 5: 33s (~*7)
+    # 6: ~3.5min
+    # 7: ~25min
+    # 8: ~3h
+    # 9: ~21h
+
+    # with 6 samples
+    # 3: 0.5s
+    # 4: 2.5s
+    # 5: 14s (~*6)
+    # 6: ~1.2min
+    # 7: ~7min
+    # 8: ~42min
+    # 9: ~4h
+
     if SINGLE:
         print("Setup took %.2f s" % (time.time() - setup_start))
     else:
@@ -53,7 +129,7 @@ for i in range(50):
         teacher.reveal_answer()
         print("# Concept not learned in expected time")
         print("Last guess:")
-        print(learner.letter_values)
+        print(learner.concept_belief)
 
     if SINGLE:
         print("Time taken: %.2f" % learner.total_time)
@@ -65,7 +141,18 @@ for i in range(50):
 
         plt.plot(teacher.assessment_history)
         plt.title("Errors during assessment phase")
+        plt.savefig("single-errors.png")
         plt.show()
+
+        action_types = [n[0].value for n in teacher.action_history]
+        p1 = plt.bar(range(len(action_types)), [1 if n == 1 else 0 for n in action_types])
+        p2 = plt.bar(range(len(action_types)), [1 if n == 2 else 0 for n in action_types])
+        p3 = plt.bar(range(len(action_types)), [1 if n == 3 else 0 for n in action_types])
+        plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+        plt.yticks([])
+        plt.savefig("single-actions.png")
+        plt.show()
+
         break
 
     action_history.append(teacher.action_history)
@@ -91,21 +178,48 @@ if not SINGLE:
     plt.title("Errors during assessment phase")
     plt.ylim(0)
     plt.xlim(0)
+    plt.savefig("multi-errors.png")
     plt.show()
 
     sns.violinplot(y=time_history)
     plt.title("Average time to complete")
+    plt.savefig("multi-time.png")
     plt.show()
 
+    max_actions = max([len(x) for x in action_history])
+    action_types_1 = np.zeros(max_actions)
+    action_types_2 = np.zeros(max_actions)
+    action_types_3 = np.zeros(max_actions)
+    for el in action_history:
+        for i, v in enumerate(el):
+            if v[0].value == 1:
+                action_types_1[i] += 1
+            elif v[0].value == 2:
+                action_types_2[i] += 1
+            elif v[0].value == 3:
+                action_types_3[i] += 1
 
-# teacher
-# - has learner model
-# - choose action: example, quiz, question with feedback
-# - evaluate response
-# - phases: 3 actions followed by assessment
-# - estimates believed concepts distribution
+    p1 = plt.bar(range(max_actions), action_types_1)
+    p2 = plt.bar(range(max_actions), action_types_2)
+    p3 = plt.bar(range(max_actions), action_types_3)
+    plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+    plt.savefig("multi-actions.png")
+    plt.show()
 
+    learned_history = [np.argmin(errors) for errors in error_history]
 
-# learner
-# - real with interface
-# - simulated
+    np.set_printoptions(precision=2)
+    print("\nSome statistics")
+    print(tt.to_string([
+        ["Time"] + ["%.2f" % item
+                    for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
+
+        ["Phases"] + ["%.2f" % item
+                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
+    ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
+
+# Notes:
+# - Planning does not return useful actions; sampling issue? (no examples samples);
+#   should it sample equations and then check all types? (although would not strictly be correct)
+# - Belief update questions
+# - Belief update does not scale in planning

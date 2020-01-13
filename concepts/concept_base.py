@@ -37,7 +37,7 @@ class ConceptBase(ABC):
         return raw_result, output
 
     @abstractmethod
-    def evaluate_concept(self, action, concept=None):
+    def evaluate_concept(self, action, concept=None, idx=None):
         pass
 
     @abstractmethod
@@ -45,5 +45,9 @@ class ConceptBase(ABC):
         pass
 
     @abstractmethod
-    def get_rl_actions(self):
+    def get_rl_actions(self, sample_count = None):
+        pass
+
+    @abstractmethod
+    def get_observation_space(self):
         pass
