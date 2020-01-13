@@ -14,8 +14,8 @@ import seaborn as sns
 import pandas as pd
 import termtables as tt
 
-SINGLE = True
-VERBOSE = True
+SINGLE = False
+VERBOSE = False
 
 MODE_SIM = "simulation"
 MODE_MANUAL = "human"
@@ -32,9 +32,9 @@ problem_len = 6
 # 0-x: direct mapping
 # number_range = list(range(0, problem_len))
 # 0-x+1: one extra letter
-number_range = list(range(0, problem_len))
+number_range = list(range(0, problem_len+1))
 
-for i in range(20):
+for i in range(50):
     random.seed(123 + i)
     np.random.seed(123 + i)
 
@@ -64,7 +64,7 @@ for i in range(20):
     teacher = Teacher(concept, belief, 3, 40)
     teacher.verbose = VERBOSE
     teacher.plan_horizon = 2
-    teacher.plan_samples = [6, 7]
+    teacher.plan_samples = [6, 6]
 
     setup_start = time.time()
     teacher.setup(0, 5)
@@ -202,8 +202,8 @@ if not SINGLE:
                 action_types_3[i] += 1
 
     p1 = plt.bar(range(max_actions), action_types_1)
-    p2 = plt.bar(range(max_actions), action_types_2)
-    p3 = plt.bar(range(max_actions), action_types_3)
+    p2 = plt.bar(range(max_actions), action_types_2, bottom=action_types_1)
+    p3 = plt.bar(range(max_actions), action_types_3, bottom=action_types_2+action_types_1)
     plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
     plt.savefig("multi-actions.png")
     plt.show()
