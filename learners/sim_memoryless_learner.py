@@ -39,8 +39,7 @@ class SimMemorylessLearner(BaseLearner):
         self.mode = "pair"
 
     def see_example(self, example):
-        if self.verbose:
-            print(self.concept.gen_readable_format(example))
+        self.print(self.concept.gen_readable_format(example))
         time.sleep(self.pause)
 
         believed_answer = self.self_evaluate(example[0])
@@ -53,31 +52,36 @@ class SimMemorylessLearner(BaseLearner):
         self.total_time += self.example_time
 
     def see_quiz(self, quiz):
-        if self.verbose:
-            print(self.concept.gen_readable_format(quiz, False))
-        time.sleep(self.pause)
-
-        response = self.self_evaluate(quiz[0])
-        if np.random.random() < self.production_noise:
-            response -= 1  # slips, TODO whats the proper way?
-
-        self.print("I think it is %d" % response)
+        response = self.generate_answer(quiz)
 
         self.total_time += self.quiz_time
 
         return response
 
+    def generate_answer(self, quiz):
+        self.print(self.concept.gen_readable_format(quiz, False))
+        time.sleep(self.pause)
+
+        response = self.self_evaluate(quiz[0])
+        if np.random.random() < self.production_noise:
+            response -= 1  # slips, TODO whats the proper way?
+        self.print("I think it is %d" % response)
+
+        return response
+
     def see_question_question(self, question):
-        return self.see_quiz(question)
+        return self.generate_answer(question)
 
     def see_question_feedback(self, question, correct):
-        time.sleep(self.pause)
         if not correct:
             self.print("Not quite, the correct answer is %d" % question[1])
 
             self.update_state(question)
         else:
             self.print("Correct")
+
+        self.total_time += self.question_time
+        time.sleep(self.pause)
 
     def update_state(self, example):
         if np.random.random() < self.transition_noise:

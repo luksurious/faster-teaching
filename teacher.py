@@ -7,8 +7,6 @@ from concepts.concept_base import ConceptBase
 
 from actions import Actions
 from learner_models.base_belief import BaseBelief
-from learner_models.memoryless import MemorylessModel
-from learner_models.discrete import DiscreteMemoryModel
 
 
 class Teacher:
@@ -24,8 +22,8 @@ class Teacher:
 
         self.gamma = 0.99
 
-        # self.strategy = self.choose_random_action
-        self.strategy = self.choose_best
+        self.strategy = self.choose_random_action
+        # self.strategy = self.choose_best
 
         self.true_concept_pos = -1
         self.best_action_stack = []

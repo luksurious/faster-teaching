@@ -4,6 +4,7 @@ from concepts.letter_addition import LetterAddition
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
 from learners.human_learner import HumanLearner
+from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
 from teacher import Teacher
@@ -44,7 +45,8 @@ for i in range(20):
 
     if MODE == MODE_SIM:
         # learner = SimMemorylessLearner(concept, number_range, prior_distribution)
-        learner = SimDiscreteLearner(concept, number_range, prior_distribution, 2)
+        # learner = SimDiscreteLearner(concept, number_range, prior_distribution, 2)
+        learner = SimContinuousLearner(concept, number_range, prior_distribution)
         learner.pause = 0
         learner.verbose = VERBOSE
         learner.mode = "stoch"
