@@ -16,26 +16,15 @@ class Teacher:
         Actions.QUESTION: 12.0
     }
 
-    def __init__(self, concept: ConceptBase, learning_phase_len: int = 3, max_phases: int = 40):
+    def __init__(self, concept: ConceptBase, belief: BaseBelief, learning_phase_len: int = 3, max_phases: int = 40):
         self.learning_phase_len = learning_phase_len
         self.max_phases = max_phases
 
         self.gamma = 0.99
 
-        self.concept = concept
-
-        self.actions = {Actions.EXAMPLE: self.concept.generate_example,
-                        Actions.QUIZ: self.concept.generate_quiz,
-                        Actions.QUESTION: self.concept.generate_question_with_feedback}
-
-        self.concept_space = self.concept.get_concept_space()
-
         # self.strategy = self.choose_random_action
         self.strategy = self.choose_best
 
-        self.concept_space_size = 0
-        self.prior_distribution = None
-        self.belief = None
         self.true_concept_pos = -1
         self.best_action_stack = []
         self.learner = None
@@ -44,18 +33,19 @@ class Teacher:
         self.assessment_history = []
         self.verbose = False
 
+        self.plan_samples = [5, 5]
+        self.plan_horizon = 2
+
+        self.concept = concept
+        self.belief = belief
+
+        self.actions = {Actions.EXAMPLE: self.concept.generate_example,
+                        Actions.QUIZ: self.concept.generate_quiz,
+                        Actions.QUESTION: self.concept.generate_question_with_feedback}
+
+        self.concept_space = self.concept.get_concept_space()
+
     def setup(self, preplan_len: int = 9, preplan_samples: int = 10):
-        # uniform prior distribution
-        self.concept_space_size = len(self.concept_space)
-        self.prior_distribution = np.array([1 / self.concept_space_size for _ in range(self.concept_space_size)])
-
-        # model = MemorylessModel(self.concept.get_concept_space(), self.prior_distribution, self.concept)
-
-        # self.belief = MemorylessModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
-        #                      verbose=self.verbose)
-        self.belief = DiscreteMemoryModel(self.prior_distribution.copy(), self.prior_distribution, self.concept,
-                                          memory_size=2, verbose=self.verbose)
-
         # position of true concept
         self.true_concept_pos = -1
         true_concept = self.concept.get_true_concepts()
@@ -122,7 +112,7 @@ class Teacher:
             # use precomputed actions
             return self.best_action_stack.pop(0)
         else:
-            return self.plan_best_actions(2, [7, 6]).pop(0)
+            return self.plan_best_actions(self.plan_horizon, self.plan_samples).pop(0)
 
     def choose_random_action(self, shown_concepts):
         # random strategy
@@ -163,7 +153,7 @@ class Teacher:
         tree = {
             "children": []
         }
-        self.forward_plan(self.belief, tree, count, samples)
+        self.forward_plan(self.belief.copy(), tree, count, samples)
 
         # self.print_plan_tree(tree)
 
@@ -172,7 +162,8 @@ class Teacher:
 
         return actions
 
-    def find_optimal_action_path(self, tree):
+    @staticmethod
+    def find_optimal_action_path(tree):
         actions = []
         parent = tree
         while len(parent["children"]) > 0:
@@ -250,6 +241,7 @@ class Teacher:
                         # believed_concept_id = np.random.choice(self.concept_space_size, p=belief.belief_state)
                         # expected_obs = self.concept.evaluate_concept([item], self.concept_space[believed_concept_id])
 
+                        # TODO verify
                         concepts_w_obs = belief.concept_val_cache[result] == expected_obs
                         obs_prob = np.sum(belief.belief_state[concepts_w_obs])
 
@@ -260,8 +252,7 @@ class Teacher:
 
                         # val += self.gamma / obs_sample_count * self.forward_plan(belief, new_node, depth - 1,
                         #                                                          child_sample_len)
-                        val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1,
-                                                                                 child_sample_len)
+                        val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1, child_sample_len)
 
                         belief.set_state(model_state)
 

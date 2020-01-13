@@ -61,7 +61,7 @@ class LetterAddition(ConceptBase):
         # if only using addition, order does not matter, so we can reduce the possibilities
         chars = sorted(chars)
 
-        return chars
+        return tuple(chars)
 
     def evaluate_equation(self, equation, values=None):
         if values is None:

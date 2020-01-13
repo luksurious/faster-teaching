@@ -9,7 +9,7 @@ from learners.base_learner import BaseLearner
 
 
 class SimMemorylessLearner(BaseLearner):
-    def __init__(self, concept: ConceptBase, number_range: list):
+    def __init__(self, concept: ConceptBase, number_range: list, prior_distribution):
         super().__init__(concept)
 
         self.verbose = True
@@ -25,7 +25,7 @@ class SimMemorylessLearner(BaseLearner):
         # np.random.shuffle(self.letter_values)
         self.concept_space = concept.get_concept_space()
         concept_space_len = len(self.concept_space)
-        self.prior_distribution = np.array([1 / concept_space_len for _ in range(concept_space_len)])
+        self.prior_distribution = prior_distribution
 
         self.concept_belief = self.concept_space[np.random.choice(range(concept_space_len), p=self.prior_distribution)]
         self.problem_len = len(self.concept_belief)
@@ -36,7 +36,7 @@ class SimMemorylessLearner(BaseLearner):
         self.quiz_time = 6.6
         self.question_time = 12.0
 
-        self.mode = "stochastic"
+        self.mode = "pair"
 
     def see_example(self, example):
         if self.verbose:
@@ -84,7 +84,7 @@ class SimMemorylessLearner(BaseLearner):
             # ignore change
             return
 
-        if self.mode == "pair-update":
+        if self.mode == "pair":
             possible_pairs = self.generate_possible_pairs(example[1])
             # print(possible_pairs)
 

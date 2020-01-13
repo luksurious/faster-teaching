@@ -17,7 +17,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
         self.transition_noise = 0.34  # pretty high
         self.production_noise = 0.046
 
-        self.mode = "pair"
+        self.mode = "stoch"
 
     def update_state(self, example):
         if np.random.random() < self.transition_noise:

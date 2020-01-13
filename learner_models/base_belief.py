@@ -30,9 +30,6 @@ class BaseBelief(ABC):
         # transition noise probability: no state change;
         # if action_type == Actions.QUIZ or np.random.random() >= self.transition_noise:
         if True:
-            # TODO is prior updated in every step?? It seems in the paper it refers to initial probability
-            #  but it is somewhat counter intuitive
-            # self.prior = self.belief_state
 
             if action_type == Actions.QUESTION:
                 # Handle question as two step action
@@ -65,7 +62,7 @@ class BaseBelief(ABC):
 
             if np.sum(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
-                new_belief = self.start_prior.copy()
+                new_belief = self.prior.copy()
 
         return new_belief
 
@@ -76,6 +73,8 @@ class BaseBelief(ABC):
             concept_val = self.get_concept_val(action, idx, new_state)
 
             p_z = self.observation_model(observation, new_state, action_type, action, concept_val)
+            if p_z == 0:
+                continue
 
             p_s = self.transition_model(new_state, idx, action_type, action, concept_val)
 
@@ -113,3 +112,9 @@ class BaseBelief(ABC):
 
     def set_state(self, state):
         self.belief_state = state.copy()
+
+    def copy(self):
+        return self.__copy__()
+
+    def __copy__(self):
+        return BaseBelief(self.belief_state.copy(), self.prior, self.concept, self.verbose)

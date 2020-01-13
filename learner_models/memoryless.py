@@ -79,11 +79,14 @@ class MemorylessModel(BaseBelief):
     def calculate_ps(self, action, new_idx):
         b_s = self.belief_state
 
-        noisy_prior = max(0, self.prior[new_idx] - self.transition_noise)
+        consistent_state_filter = self.state_action_values[action[0]] == action[1]
+
+        # prob of going to new state
+        noisy_prior = self.prior[new_idx] / np.sum(self.prior[consistent_state_filter]) - self.transition_noise
 
         p_s = np.ones(len(self.states)) * noisy_prior  # default transition with prior probability
-        consistent_state_filter = self.state_action_values[action[0]] == action[1]
         p_s[consistent_state_filter] = 0  # no transition from other consistent concepts
+
         p_s[new_idx] = 1  # instead it stays at the same concept
         p_s = np.sum(p_s * b_s)
 
@@ -156,3 +159,6 @@ class MemorylessModel(BaseBelief):
 
     def see_action(self, action_type, action):
         pass
+
+    def __copy__(self):
+        return MemorylessModel(self.belief_state.copy(), self.prior, self.concept, self.verbose)

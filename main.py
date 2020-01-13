@@ -1,6 +1,8 @@
 import numpy as np
 import random
 from concepts.letter_addition import LetterAddition
+from learner_models.discrete import DiscreteMemoryModel
+from learner_models.memoryless import MemorylessModel
 from learners.human_learner import HumanLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
@@ -32,25 +34,38 @@ problem_len = 6
 # 0-x+1: one extra letter
 number_range = list(range(0, problem_len))
 
-for i in range(50):
+for i in range(20):
     random.seed(123+i)
     np.random.seed(123+i)
 
     concept = LetterAddition(problem_len)
 
+    prior_distribution = np.ones(len(concept.get_concept_space()))
+    prior_distribution /= np.sum(prior_distribution)
+
     if MODE == MODE_SIM:
-        # learner = SimMemorylessLearner(concept, number_range)
-        learner = SimDiscreteLearner(concept, number_range, 2)
+        learner = SimMemorylessLearner(concept, number_range, prior_distribution)
+        # learner = SimDiscreteLearner(concept, number_range, 2, prior_distribution)
         learner.pause = 0
         learner.verbose = VERBOSE
+        learner.production_noise = 0
+        learner.transition_noise = 0
     else:
         learner = HumanLearner(concept)
 
-    teacher = Teacher(concept, 3, 40)
+    belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=VERBOSE)
+    # belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
+    #                                   memory_size=2, verbose=VERBOSE)
+    belief.transition_noise = 0
+    belief.production_noise = 0
+
+    teacher = Teacher(concept, belief, 3, 2)
     teacher.verbose = VERBOSE
+    teacher.plan_horizon = 2
+    teacher.plan_samples = [6, 7]
 
     setup_start = time.time()
-    teacher.setup(2, 6)
+    teacher.setup(0, 5)
 
     # New data:
     # - 3*6
