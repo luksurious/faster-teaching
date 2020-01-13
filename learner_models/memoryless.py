@@ -27,6 +27,7 @@ class MemorylessModel(BaseBelief):
                 self.state_matches[n] = (permutations * self.count_possible_pairs(n, max_number)) - len(self.states)
 
         # pre-calculate state-action concept values
+        # TODO duplicated as in letter addition?
         self.state_action_values = {}
         self.pre_calc_state_values()
 
@@ -34,7 +35,7 @@ class MemorylessModel(BaseBelief):
         for action in self.concept.get_rl_actions():
             self.state_action_values[action] = np.zeros(len(self.states))
             for idx, state in enumerate(self.states):
-                self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state)
+                self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state, idx)
 
     def observation_model(self, observation, new_state, action_type, action, concept_val):
         """

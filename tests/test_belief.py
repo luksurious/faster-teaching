@@ -203,6 +203,7 @@ def create_test_belief_memoryless(concept, cur_belief=None):
     belief.production_noise = 0
     return belief
 
+
 def test_belief_three_example_discrete():
     random.seed(123)
     np.random.seed(123)
@@ -228,6 +229,7 @@ def test_belief_three_example_discrete():
                              true=1,
                              response=None,
                              expected=[0., 1., 0., 0., 0., 0.])
+
 
 def create_test_belief_discrete(concept, cur_belief=None):
     concept_count = len(concept.get_concept_space())

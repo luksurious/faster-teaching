@@ -8,8 +8,8 @@ from learners.sim_memoryless_learner import SimMemorylessLearner
 
 
 class SimDiscreteLearner(SimMemorylessLearner):
-    def __init__(self, concept: ConceptBase, number_range: list, memory_size: int = 2):
-        super().__init__(concept, number_range)
+    def __init__(self, concept: ConceptBase, number_range: list, prior_distribution, memory_size: int = 2):
+        super().__init__(concept, number_range, prior_distribution)
 
         self.memory_size = memory_size
         self.memory = deque(maxlen=memory_size)
@@ -19,9 +19,12 @@ class SimDiscreteLearner(SimMemorylessLearner):
 
         self.mode = "stoch"
 
+        self.ignored_transition = False
+
     def update_state(self, example):
         if np.random.random() < self.transition_noise:
             # TODO should also memory be ignored?
+            self.ignored_transition = True
             # ignore change
             return
 
@@ -116,4 +119,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
         return self.self_evaluate(memory_item[0]) == memory_item[1]
 
     def finish_action(self, action_data):
-        self.memory.append(action_data)
+        if not self.ignored_transition:
+            self.memory.append(action_data)
+
+        self.ignored_transition = False

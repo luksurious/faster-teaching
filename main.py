@@ -13,7 +13,6 @@ import seaborn as sns
 import pandas as pd
 import termtables as tt
 
-
 SINGLE = True
 VERBOSE = True
 
@@ -35,8 +34,8 @@ problem_len = 6
 number_range = list(range(0, problem_len))
 
 for i in range(20):
-    random.seed(123+i)
-    np.random.seed(123+i)
+    random.seed(123 + i)
+    np.random.seed(123 + i)
 
     concept = LetterAddition(problem_len)
 
@@ -44,22 +43,23 @@ for i in range(20):
     prior_distribution /= np.sum(prior_distribution)
 
     if MODE == MODE_SIM:
-        learner = SimMemorylessLearner(concept, number_range, prior_distribution)
-        # learner = SimDiscreteLearner(concept, number_range, 2, prior_distribution)
+        # learner = SimMemorylessLearner(concept, number_range, prior_distribution)
+        learner = SimDiscreteLearner(concept, number_range, prior_distribution, 2)
         learner.pause = 0
         learner.verbose = VERBOSE
-        learner.production_noise = 0
-        learner.transition_noise = 0
+        learner.mode = "stoch"
+        # learner.production_noise = 0
+        # learner.transition_noise = 0
     else:
         learner = HumanLearner(concept)
 
-    belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=VERBOSE)
-    # belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
-    #                                   memory_size=2, verbose=VERBOSE)
-    belief.transition_noise = 0
-    belief.production_noise = 0
+    # belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=VERBOSE)
+    belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
+                                 memory_size=2, verbose=VERBOSE)
+    # belief.transition_noise = 0
+    # belief.production_noise = 0
 
-    teacher = Teacher(concept, belief, 3, 2)
+    teacher = Teacher(concept, belief, 3, 40)
     teacher.verbose = VERBOSE
     teacher.plan_horizon = 2
     teacher.plan_samples = [6, 7]
@@ -141,6 +141,7 @@ for i in range(20):
 
         plt.plot(teacher.assessment_history)
         plt.title("Errors during assessment phase")
+        plt.savefig("single-errors.png")
         plt.show()
 
         action_types = [n[0].value for n in teacher.action_history]
@@ -149,6 +150,7 @@ for i in range(20):
         p3 = plt.bar(range(len(action_types)), [1 if n == 3 else 0 for n in action_types])
         plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
         plt.yticks([])
+        plt.savefig("single-actions.png")
         plt.show()
 
         break
@@ -176,10 +178,12 @@ if not SINGLE:
     plt.title("Errors during assessment phase")
     plt.ylim(0)
     plt.xlim(0)
+    plt.savefig("multi-errors.png")
     plt.show()
 
     sns.violinplot(y=time_history)
     plt.title("Average time to complete")
+    plt.savefig("multi-time.png")
     plt.show()
 
     max_actions = max([len(x) for x in action_history])
@@ -199,6 +203,7 @@ if not SINGLE:
     p2 = plt.bar(range(max_actions), action_types_2)
     p3 = plt.bar(range(max_actions), action_types_3)
     plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+    plt.savefig("multi-actions.png")
     plt.show()
 
     learned_history = [np.argmin(errors) for errors in error_history]
@@ -212,7 +217,6 @@ if not SINGLE:
         ["Phases"] + ["%.2f" % item
                       for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
     ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
-
 
 # Notes:
 # - Planning does not return useful actions; sampling issue? (no examples samples);
