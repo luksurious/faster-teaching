@@ -16,14 +16,17 @@ class Teacher:
         Actions.QUESTION: 12.0
     }
 
-    def __init__(self, concept: ConceptBase, belief: BaseBelief, learning_phase_len: int = 3, max_phases: int = 40):
+    def __init__(self, concept: ConceptBase, belief: BaseBelief, policy, learning_phase_len: int = 3,
+                 max_phases: int = 40):
         self.learning_phase_len = learning_phase_len
         self.max_phases = max_phases
 
         self.gamma = 0.99
 
-        self.strategy = self.choose_random_action
-        # self.strategy = self.choose_best
+        if policy == 'random':
+            self.strategy = self.choose_random_action
+        else:
+            self.strategy = self.choose_best
 
         self.true_concept_pos = -1
         self.best_action_stack = []
