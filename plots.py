@@ -1,29 +1,40 @@
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import pandas as pd
+import seaborn as sns
 import termtables as tt
 
+OUTPUT = "data/"
 
-def plot_single_actions(action_history):
+
+def plot_single_actions(action_history, model_subtitle=None):
     action_types = [n[0].value for n in action_history]
     p1 = plt.bar(range(len(action_types)), [1 if n == 1 else 0 for n in action_types])
     p2 = plt.bar(range(len(action_types)), [1 if n == 2 else 0 for n in action_types])
     p3 = plt.bar(range(len(action_types)), [1 if n == 3 else 0 for n in action_types])
+
+    title = "Planned actions per time step"
+    add_titles(title, model_subtitle)
+
     plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
     plt.yticks([])
-    plt.savefig("single-actions.png")
+    plt.savefig(OUTPUT + "single-actions_%d.png" % time.time())
     plt.show()
 
 
-def plot_single_errors(error_history):
+def plot_single_errors(error_history, model_subtitle=None):
     plt.plot(error_history)
-    plt.title("Errors during assessment phase")
-    plt.savefig("single-errors.png")
+
+    title = "Errors during assessment phase"
+    add_titles(title, model_subtitle)
+
+    plt.savefig(OUTPUT + "single-errors_%d.png" % time.time())
     plt.show()
 
 
-def plot_multi_errors(error_history):
+def plot_multi_errors(error_history, model_subtitle=None):
     max_len = max([len(x) for x in error_history])
     plot_data = np.zeros((len(error_history), max_len))
 
@@ -35,21 +46,27 @@ def plot_multi_errors(error_history):
         panda_data = panda_data.append(pd.DataFrame({"error": plot_data[i], "step": list(range(max_len))}))
 
     sns.lineplot(x="step", y="error", data=panda_data, ci='sd')
-    plt.title("Errors during assessment phase")
+
+    title = "Errors during assessment phase"
+    add_titles(title, model_subtitle)
+
     plt.ylim(0)
     plt.xlim(0)
-    plt.savefig("multi-errors.png")
+    plt.savefig(OUTPUT + "multi-errors_%d.png" % time.time())
     plt.show()
 
 
-def plot_multi_time(time_history):
+def plot_multi_time(time_history, model_subtitle=None):
     sns.violinplot(y=time_history)
-    plt.title("Average time to complete")
-    plt.savefig("multi-time.png")
+
+    title = "Average time to complete"
+    add_titles(title, model_subtitle)
+
+    plt.savefig(OUTPUT + "multi-time_%d.png" % time.time())
     plt.show()
 
 
-def plot_multi_actions(action_history):
+def plot_multi_actions(action_history, model_subtitle=None):
     max_actions = max([len(x) for x in action_history])
     action_types_1 = np.zeros(max_actions)
     action_types_2 = np.zeros(max_actions)
@@ -65,9 +82,13 @@ def plot_multi_actions(action_history):
 
     p1 = plt.bar(range(max_actions), action_types_1)
     p2 = plt.bar(range(max_actions), action_types_2, bottom=action_types_1)
-    p3 = plt.bar(range(max_actions), action_types_3, bottom=action_types_2+action_types_1)
+    p3 = plt.bar(range(max_actions), action_types_3, bottom=action_types_2 + action_types_1)
     plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
-    plt.savefig("multi-actions.png")
+
+    title = "Planned actions per time step"
+    add_titles(title, model_subtitle)
+
+    plt.savefig(OUTPUT + "multi-actions_%d.png" % time.time())
     plt.show()
 
 
@@ -84,3 +105,8 @@ def print_statistics_table(error_history, time_history):
                       for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
     ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
 
+
+def add_titles(title, model_subtitle):
+    plt.suptitle(title, fontsize=12)
+    if model_subtitle:
+        plt.title(model_subtitle, fontsize=9)

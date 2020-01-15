@@ -25,6 +25,13 @@ def setup_arguments():
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
     parser.add_argument('--plan_discrete_memory', type=int, default=2,
                         help="Size of the memory for the planning model")
+    parser.add_argument('--plan_online_horizon', type=int, default=2,
+                        help="Horizon of the planning algorithm during online planning")
+    parser.add_argument('--plan_online_samples', type=int, nargs='*', default=[6, 6],
+                        help="Sample lens of the planning algorithm during online planning for each horizon step")
+    parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
+    parser.add_argument('--plan_pre_samples', type=int, default=6,
+                        help="Number of samples per planning step for precomputed actions")
 
     # Execution arguments
     parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
@@ -53,13 +60,6 @@ def setup_arguments():
     parser.add_argument('--teaching_phase_actions', type=int, default=3, help="Number of teaching actions per phase")
     parser.add_argument('--max_teaching_phases', type=int, default=40,
                         help="Maximum number of teaching phases before canceling")
-    parser.add_argument('--plan_online_horizon', type=int, default=2,
-                        help="Horizon of the planning algorithm during online planning")
-    parser.add_argument('--plan_online_samples', type=int, nargs='*', default=[6, 6],
-                        help="Sample lens of the planning algorithm during online planning for each horizon step")
-    parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
-    parser.add_argument('--plan_pre_samples', type=int, default=6,
-                        help="Number of samples per planning step for precomputed actions")
 
     return parser
 
@@ -136,7 +136,7 @@ def setup_learning(args, number_range, single_run):
     return concept, prior_distribution, learner, belief, teacher
 
 
-def handle_single_run_end(global_time_start, learner, success, teacher):
+def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
     if not success:
         teacher.reveal_answer()
         print("# Concept not learned in expected time")
@@ -147,18 +147,18 @@ def handle_single_run_end(global_time_start, learner, success, teacher):
     print("Global time elapsed: %.2f" % (time.time() - global_time_start))
     # print(teacher.action_history)
 
-    plot_single_errors(teacher.assessment_history)
-    plot_single_actions(teacher.action_history)
+    plot_single_errors(teacher.assessment_history, model_info)
+    plot_single_actions(teacher.action_history, model_info)
 
 
-def handle_multi_run_end(action_history, error_history, global_time_start, time_history):
-    plot_multi_errors(error_history)
+def handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info):
+    plot_multi_errors(error_history, model_info)
     plt.clf()
 
-    plot_multi_time(time_history)
+    plot_multi_time(time_history, model_info)
     plt.clf()
 
-    plot_multi_actions(action_history)
+    plot_multi_actions(action_history, model_info)
     plt.clf()
 
     print_statistics_table(error_history, time_history)
@@ -166,46 +166,82 @@ def handle_multi_run_end(action_history, error_history, global_time_start, time_
 
 
 def describe_arguments(args):
+    model_info = "Model: %s - Learner: %s - Plan: %s"
+    model, learner, plan = "", "", ""
+
     if args.manual:
-        print("Using manual mode")
+        print("Learner: Manual")
+        learner = "Manual"
     else:
         if args.sim_model == 'memoryless':
+            learner = "Memoryless"
             if args.sim_model_mode == 'pair':
-                print("Using a simulated memoryless learner with pairwise updating")
+                print("Learner: Simulated memoryless learner with pairwise updating")
+                learner += " (pair)"
             else:
-                print("Using a simulated memoryless learner with stochastic updating")
+                print("Learner: Simulated memoryless learner with stochastic updating")
+                learner += " (stoch)"
         elif args.sim_model == 'discrete':
+            learner = "Discrete"
             if args.sim_model_mode == 'pair':
-                print("Using a simulated learner with discrete memory (s=%d) and pairwise updating"
+                print("Learner: Simulated learner with discrete memory (s=%d) and pairwise updating"
                       % args.sim_discrete_memory)
+                learner += " (pair)"
             else:
-                print("Using a simulated learner with discrete memory (s=%d) and stochastic updating"
+                print("Learner: Simulated learner with discrete memory (s=%d) and stochastic updating"
                       % args.sim_discrete_memory)
+                learner += " (stoch)"
         elif args.sim_model == 'continuous':
-            print("Using a simulated learner with continuous memory")
+            print("Learner: Simulated learner with continuous memory")
+            learner = "Continuous"
         if args.sim_no_noise:
             print("-- ignoring noise for simulated learners")
+            learner += "(w/o noise)"
 
+    print("")
     if args.policy == 'random':
-        print("Choosing actions randomly")
+        print("Policy: Random actions")
+        model = "Random"
+        plan = "-"
     else:
         if args.planning_model == 'memoryless':
-            print("Planning actions using a memoryless belief model")
+            print("Policy: Planning actions using a memoryless belief model")
+            model = "Memoryless"
         elif args.planning_model == 'discrete':
-            print("Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            print("Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            model = "Discrete"
         elif args.planning_model == 'continuous':
-            print("Planning actions using a belief model with continuous memory")
+            print("Policy: Planning actions using a belief model with continuous memory")
+            model = "Continuous"
         if args.plan_no_noise:
             print("-- ignoring noise in belief updating")
+            model += " (w/o noise)"
 
+        print("Precomputed actions: %d x %d" % (args.plan_pre_horizon, args.plan_pre_samples))
+        print("Online planning: %d x %s" % (args.plan_online_horizon, args.plan_online_samples))
+
+        plan = "%d x %d pre + %d x %s" % (args.plan_pre_horizon, args.plan_pre_samples,
+                                          args.plan_online_horizon, args.plan_online_samples)
+
+    if not args.single_run:
+        print("\nSimulation: %d trials" % args.sim_count)
+        learner += " x%d" % args.sim_count
+
+    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range))
+
+    print("\n-------------------------\n")
+
+    return model_info % (model, learner, plan)
 
 
 def main():
     parser = setup_arguments()
     args = parser.parse_args()
-    describe_arguments(args)
+    model_info = describe_arguments(args)
 
-    single_run = args.single_run or args.sim_count == 1
+    if args.sim_count == 1:
+        args.single_run = True
+
     number_range = list(range(0, args.number_range))
 
     global_time_start = time.time()
@@ -218,12 +254,12 @@ def main():
         random.seed(args.sim_seed + i)
         np.random.seed(args.sim_seed + i)
 
-        concept, prior_distribution, learner, belief, teacher = setup_learning(args, number_range, single_run)
+        concept, prior_distribution, learner, belief, teacher = setup_learning(args, number_range, args.single_run)
 
         success = teacher.teach()
 
-        if single_run:
-            handle_single_run_end(global_time_start, learner, success, teacher)
+        if args.single_run:
+            handle_single_run_end(global_time_start, learner, success, teacher, model_info)
 
             break
         else:
@@ -236,8 +272,8 @@ def main():
         error_history.append(teacher.assessment_history)
         time_history.append(learner.total_time)
 
-    if not single_run:
-        handle_multi_run_end(action_history, error_history, global_time_start, time_history)
+    if not args.single_run:
+        handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info)
 
 
 main()
