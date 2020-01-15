@@ -2,6 +2,8 @@ import random
 import argparse
 import time
 
+from tqdm import tqdm
+
 from concepts.letter_addition import LetterAddition
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
@@ -17,11 +19,11 @@ def setup_arguments():
     parser = argparse.ArgumentParser(description='Run the "Faster Teaching via POMDP Planning" implementation using '
                                                  'simulated learners')
     # Planning arguments
-    parser.add_argument('policy', type=str, default="plan", choices=["plan", "random"], nargs='?',
-                        help='Select the policy of the teacher: "plan" (default) or "random"')
     parser.add_argument('planning_model', type=str, default="memoryless",
                         choices=["memoryless", "discrete", "continuous"], nargs='?',
                         help="Which learner model to use during planning for updating the belief")
+    parser.add_argument('policy', type=str, default="plan", choices=["plan", "random"], nargs='?',
+                        help='Select the policy of the teacher: "plan" (default) or "random"')
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
     parser.add_argument('--plan_discrete_memory', type=int, default=2,
                         help="Size of the memory for the planning model")
@@ -103,37 +105,44 @@ def create_belief_model(args, prior_distribution, concept):
     return belief
 
 
-def create_teacher(args, concept, belief, learner, single_run):
+def create_teacher(args, concept, belief):
     teacher = Teacher(concept, belief, args.policy, args.teaching_phase_actions, args.max_teaching_phases)
     teacher.verbose = args.verbose
     teacher.plan_horizon = args.plan_online_horizon
     teacher.plan_samples = args.plan_online_samples
 
-    setup_start = time.time()
-    teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
-    if single_run:
-        print("Setup took %.2f s" % (time.time() - setup_start))
-
-    teacher.enroll_learner(learner)
-
     return teacher
 
 
-def setup_learning(args, number_range, single_run):
-    concept = LetterAddition(args.problem_len)
+def create_teaching_objects(args, number_range):
+    concept = LetterAddition(args.problem_len, number_range=number_range)
 
     prior_distribution = np.ones(len(concept.get_concept_space()))
     prior_distribution /= np.sum(prior_distribution)
 
+    belief = create_belief_model(args, prior_distribution, concept)
+    teacher = create_teacher(args, concept, belief)
+
+    return concept, prior_distribution, belief, teacher
+
+
+def setup_learner(args, concept, number_range, prior_distribution, teacher):
     if not args.manual:
         learner = create_simulated_learner(args, concept, number_range, prior_distribution)
     else:
         learner = HumanLearner(concept)
+    teacher.enroll_learner(learner)
 
-    belief = create_belief_model(args, prior_distribution, concept)
-    teacher = create_teacher(args, concept, belief, learner, single_run)
+    return learner
 
-    return concept, prior_distribution, learner, belief, teacher
+
+def perform_preplanning(args, teacher):
+    random.seed(args.sim_seed)
+    np.random.seed(args.sim_seed)
+
+    setup_start = time.time()
+    teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
+    print("Precomputing actions took %.2f s" % (time.time() - setup_start))
 
 
 def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
@@ -227,7 +236,7 @@ def describe_arguments(args):
         print("\nSimulation: %d trials" % args.sim_count)
         learner += " x%d" % args.sim_count
 
-    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range))
+    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range-1))
 
     print("\n-------------------------\n")
 
@@ -250,11 +259,20 @@ def main():
     action_history = []
     time_history = []
 
-    for i in range(args.sim_count):
+    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
+    perform_preplanning(args, teacher)
+
+    if args.single_run:
+        iterator = range(1)
+    else:
+        iterator = tqdm(range(args.sim_count))
+
+    for i in iterator:
         random.seed(args.sim_seed + i)
         np.random.seed(args.sim_seed + i)
 
-        concept, prior_distribution, learner, belief, teacher = setup_learning(args, number_range, args.single_run)
+        teacher.reset()
+        learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
         success = teacher.teach()
 

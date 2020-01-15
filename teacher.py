@@ -51,7 +51,8 @@ class Teacher:
         # TODO stop planning after max time
         self.max_time = 3
 
-    def setup(self, preplan_len: int = 9, preplan_samples: int = 10):
+        self.action_count = 0
+
         # position of true concept
         self.true_concept_pos = -1
         true_concept = self.concept.get_true_concepts()
@@ -60,12 +61,19 @@ class Teacher:
                 self.true_concept_pos = i
                 break
 
+    def setup(self, preplan_len: int = 9, preplan_samples: int = 10):
         self.best_action_stack = self.plan_best_actions(preplan_len, [preplan_samples]*preplan_len)
+
+    def reset(self):
+        self.action_history = []
+        self.assessment_history = []
+        self.action_count = 0
+        self.belief.reset()
 
     def teach(self):
         shown_concepts = []
 
-        for action_num in range(self.max_phases*3):
+        for self.action_count in range(self.max_phases*3):
             action_type, equation, result = self.choose_action(shown_concepts)
 
             action_data = (equation, result)
@@ -97,7 +105,7 @@ class Teacher:
 
             self.action_history.append((action_type, action_data))
 
-            if (action_num + 1) % self.learning_phase_len == 0:
+            if (self.action_count + 1) % self.learning_phase_len == 0:
                 shown_concepts = []
                 if self.assess():
                     return True
@@ -108,9 +116,9 @@ class Teacher:
         return self.strategy(shown_concepts)
 
     def choose_best(self, shown_concepts):
-        if len(self.best_action_stack) > 0:
+        if self.action_count < len(self.best_action_stack):
             # use precomputed actions
-            return self.best_action_stack.pop(0)
+            return self.best_action_stack[self.action_count]
         else:
             return self.plan_best_actions(self.plan_horizon, self.plan_samples).pop(0)
 
