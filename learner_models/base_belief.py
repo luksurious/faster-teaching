@@ -37,7 +37,7 @@ class BaseBelief(ABC):
                 # Handle question as two step action
                 new_belief = self.calc_new_belief(Actions.QUIZ, response, result)
                 self.belief_state = new_belief
-                new_belief = self.calc_new_belief(Actions.EXAMPLE, response, result)
+                new_belief = self.calc_new_belief(Actions.EXAMPLE, None, result)
             else:
                 new_belief = self.calc_new_belief(action_type, response, result)
 
@@ -103,6 +103,9 @@ class BaseBelief(ABC):
 
     def set_state(self, state):
         self.belief_state = state.copy()
+
+    def get_concept_prob(self, index):
+        return self.belief_state[index]
 
     def copy(self):
         o = self.__copy__()
