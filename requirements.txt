@@ -1,3 +1,4 @@
+tqdm
 termtables
 pandas
 seaborn

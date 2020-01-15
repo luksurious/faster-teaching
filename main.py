@@ -1,225 +1,297 @@
-import numpy as np
 import random
+import argparse
+import time
+
+from tqdm import tqdm
+
 from concepts.letter_addition import LetterAddition
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
 from learners.human_learner import HumanLearner
+from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
+from plots import *
 from teacher import Teacher
-import time
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import termtables as tt
 
-SINGLE = True
-VERBOSE = True
 
-MODE_SIM = "simulation"
-MODE_MANUAL = "human"
-MODE = MODE_SIM
+def setup_arguments():
+    parser = argparse.ArgumentParser(description='Run the "Faster Teaching via POMDP Planning" implementation using '
+                                                 'simulated learners')
+    # Planning arguments
+    parser.add_argument('planning_model', type=str, default="memoryless",
+                        choices=["memoryless", "discrete", "continuous"], nargs='?',
+                        help="Which learner model to use during planning for updating the belief")
+    parser.add_argument('policy', type=str, default="plan", choices=["plan", "random"], nargs='?',
+                        help='Select the policy of the teacher: "plan" (default) or "random"')
+    parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
+    parser.add_argument('--plan_discrete_memory', type=int, default=2,
+                        help="Size of the memory for the planning model")
+    parser.add_argument('--plan_online_horizon', type=int, default=2,
+                        help="Horizon of the planning algorithm during online planning")
+    parser.add_argument('--plan_online_samples', type=int, nargs='*', default=[6, 6],
+                        help="Sample lens of the planning algorithm during online planning for each horizon step")
+    parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
+    parser.add_argument('--plan_pre_samples', type=int, default=6,
+                        help="Number of samples per planning step for precomputed actions")
 
-global_time_start = time.time()
+    # Execution arguments
+    parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
+    parser.add_argument('-s', '--single_run', action="store_true", help="Only run one simulation")
+    parser.add_argument('-c', '--sim_count', type=int, default=50, help="Number of simulations to run")
+    parser.add_argument('--sim_seed', type=int, default=123, help="Base seed for the different simulation runs")
 
-times = []
-error_history = []
-action_history = []
-time_history = []
+    # Task arguments
+    parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
+    parser.add_argument('-r', '--number_range', type=int, default=6, help="Upper bound of the number range mapping")
 
-problem_len = 6
-# 0-x: direct mapping
-# number_range = list(range(0, problem_len))
-# 0-x+1: one extra letter
-number_range = list(range(0, problem_len))
+    # Learner arguments
+    parser.add_argument('-m', '--manual', action="store_true",
+                        help="Manually interact with the program instead of simulation")
+    parser.add_argument('--sim_model', default="memoryless", choices=["memoryless", "discrete", "continuous"],
+                        help="The type of simulated learner to use")
+    parser.add_argument('--sim_model_mode', default="stochastic", choices=["stochastic", "pair"],
+                        help="In case of memoryless and discrete learners, you can use a stochastic mode or a pair mode"
+                             " which keeps the state more similar to old states")
+    parser.add_argument('--sim_discrete_memory', type=int, default=2,
+                        help="Size of the memory for the simulated learner")
+    parser.add_argument('--sim_pause', type=int, default=0, help="Make the simulated learner pause before continuing")
+    parser.add_argument('--sim_no_noise', action="store_true", help="Disable noisy behavior in the simulated learner")
 
-for i in range(20):
-    random.seed(123 + i)
-    np.random.seed(123 + i)
+    # Teacher arguments
+    parser.add_argument('--teaching_phase_actions', type=int, default=3, help="Number of teaching actions per phase")
+    parser.add_argument('--max_teaching_phases', type=int, default=40,
+                        help="Maximum number of teaching phases before canceling")
 
-    concept = LetterAddition(problem_len)
+    return parser
+
+
+def create_simulated_learner(args, concept, number_range, prior_distribution):
+    if args.sim_model == 'memoryless':
+        learner = SimMemorylessLearner(concept, number_range, prior_distribution)
+    elif args.sim_model == 'discrete':
+        learner = SimDiscreteLearner(concept, number_range, prior_distribution, args.sim_discrete_memory)
+    elif args.sim_model == 'continuous':
+        learner = SimContinuousLearner(concept, number_range, prior_distribution)
+    else:
+        raise Exception("Unknown simulation model")
+
+    learner.pause = args.sim_pause
+    learner.verbose = args.verbose
+    learner.mode = args.sim_model_mode
+
+    if args.sim_no_noise:
+        learner.production_noise = 0
+        learner.transition_noise = 0
+
+    return learner
+
+
+def create_belief_model(args, prior_distribution, concept):
+    if args.planning_model == 'memoryless':
+        belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=args.verbose)
+    elif args.planning_model == 'discrete':
+        belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
+                                     memory_size=args.plan_discrete_memory, verbose=args.verbose)
+    elif args.planning_model == 'continuous':
+        raise Exception("Not yet implemented")
+    else:
+        raise Exception("Unknown simulation model")
+
+    if args.plan_no_noise:
+        belief.transition_noise = 0
+        belief.production_noise = 0
+
+    return belief
+
+
+def create_teacher(args, concept, belief):
+    teacher = Teacher(concept, belief, args.policy, args.teaching_phase_actions, args.max_teaching_phases)
+    teacher.verbose = args.verbose
+    teacher.plan_horizon = args.plan_online_horizon
+    teacher.plan_samples = args.plan_online_samples
+
+    return teacher
+
+
+def create_teaching_objects(args, number_range):
+    concept = LetterAddition(args.problem_len, number_range=number_range)
 
     prior_distribution = np.ones(len(concept.get_concept_space()))
     prior_distribution /= np.sum(prior_distribution)
 
-    if MODE == MODE_SIM:
-        # learner = SimMemorylessLearner(concept, number_range, prior_distribution)
-        learner = SimDiscreteLearner(concept, number_range, prior_distribution, 2)
-        learner.pause = 0
-        learner.verbose = VERBOSE
-        learner.mode = "stoch"
-        # learner.production_noise = 0
-        # learner.transition_noise = 0
+    belief = create_belief_model(args, prior_distribution, concept)
+    teacher = create_teacher(args, concept, belief)
+
+    return concept, prior_distribution, belief, teacher
+
+
+def setup_learner(args, concept, number_range, prior_distribution, teacher):
+    if not args.manual:
+        learner = create_simulated_learner(args, concept, number_range, prior_distribution)
     else:
         learner = HumanLearner(concept)
-
-    # belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=VERBOSE)
-    belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
-                                 memory_size=2, verbose=VERBOSE)
-    # belief.transition_noise = 0
-    # belief.production_noise = 0
-
-    teacher = Teacher(concept, belief, 3, 40)
-    teacher.verbose = VERBOSE
-    teacher.plan_horizon = 2
-    teacher.plan_samples = [6, 7]
-
-    setup_start = time.time()
-    teacher.setup(0, 5)
-
-    # New data:
-    # - 3*6
-    #   448.44 s (observation sampling)
-    #   180.21 s (all observations and skip 0; no epsilon)
-    #   344.21 s (all observations, with epsilon) - no convergence - deteriorated to quizzes
-
-    # with 10 samples
-    # 3: 2s
-    # 4: 17s
-    # 5: 190s (~*10)
-    # 6: ~30min
-    # 7: ~5h
-    # 8: ~2d
-    # 9: ~20d
-
-    # with 9 samples
-    # 3: 1.4s
-    # 4: 12s
-    # 5: 117s (~*9)
-    # 6: ~18min
-    # 7: ~2.6h
-    # 8: ~1d
-    # 9: ~10d
-
-    # with 8 samples
-    # 3: 0.9s
-    # 4: 7.3s
-    # 5: 68s (~*8)
-    # 6: ~8min
-    # 7: ~1h
-    # 8: ~8h
-    # 9: ~3d
-
-    # with 7 samples
-    # 3: 0.6s
-    # 4: 4.5s
-    # 5: 33s (~*7)
-    # 6: ~3.5min
-    # 7: ~25min
-    # 8: ~3h
-    # 9: ~21h
-
-    # with 6 samples
-    # 3: 0.5s
-    # 4: 2.5s
-    # 5: 14s (~*6)
-    # 6: ~1.2min
-    # 7: ~7min
-    # 8: ~42min
-    # 9: ~4h
-
-    if SINGLE:
-        print("Setup took %.2f s" % (time.time() - setup_start))
-    else:
-        print(".", end="")
-
     teacher.enroll_learner(learner)
 
-    if not teacher.teach():
+    return learner
+
+
+def perform_preplanning(args, teacher):
+    random.seed(args.sim_seed)
+    np.random.seed(args.sim_seed)
+
+    setup_start = time.time()
+    teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
+    print("Precomputing actions took %.2f s" % (time.time() - setup_start))
+
+
+def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
+    if not success:
         teacher.reveal_answer()
         print("# Concept not learned in expected time")
         print("Last guess:")
         print(learner.concept_belief)
 
-    if SINGLE:
-        print("Time taken: %.2f" % learner.total_time)
+    print("Learning time taken: %.2f" % learner.total_time)
+    print("Global time elapsed: %.2f" % (time.time() - global_time_start))
+    # print(teacher.action_history)
 
-        print("Global time elapsed: %.2f" % (time.time() - global_time_start))
+    plot_single_errors(teacher.assessment_history, model_info)
+    plot_single_actions(teacher.action_history, model_info)
 
-        print(teacher.action_history)
-        print(teacher.assessment_history)
 
-        plt.plot(teacher.assessment_history)
-        plt.title("Errors during assessment phase")
-        plt.savefig("single-errors.png")
-        plt.show()
+def handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info):
+    plot_multi_errors(error_history, model_info)
+    plt.clf()
 
-        action_types = [n[0].value for n in teacher.action_history]
-        p1 = plt.bar(range(len(action_types)), [1 if n == 1 else 0 for n in action_types])
-        p2 = plt.bar(range(len(action_types)), [1 if n == 2 else 0 for n in action_types])
-        p3 = plt.bar(range(len(action_types)), [1 if n == 3 else 0 for n in action_types])
-        plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
-        plt.yticks([])
-        plt.savefig("single-actions.png")
-        plt.show()
+    plot_multi_time(time_history, model_info)
+    plt.clf()
 
-        break
+    plot_multi_actions(action_history, model_info)
+    plt.clf()
 
-    action_history.append(teacher.action_history)
-    error_history.append(teacher.assessment_history)
-    time_history.append(learner.total_time)
+    print_statistics_table(error_history, time_history)
+    print("Global time elapsed: %.2f" % (time.time() - global_time_start))
 
-if not SINGLE:
-    # plt.plot(error_history)
-    max_len = max([len(x) for x in error_history])
-    plot_data = np.zeros((len(error_history), max_len))
 
-    panda_data = pd.DataFrame()
+def describe_arguments(args):
+    model_info = "Model: %s - Learner: %s - Plan: %s"
+    model, learner, plan = "", "", ""
 
-    for i, seq in enumerate(error_history):
-        plot_data[i][0:len(seq)] = seq
+    if args.manual:
+        print("Learner: Manual")
+        learner = "Manual"
+    else:
+        if args.sim_model == 'memoryless':
+            learner = "Memoryless"
+            if args.sim_model_mode == 'pair':
+                print("Learner: Simulated memoryless learner with pairwise updating")
+                learner += " (pair)"
+            else:
+                print("Learner: Simulated memoryless learner with stochastic updating")
+                learner += " (stoch)"
+        elif args.sim_model == 'discrete':
+            learner = "Discrete"
+            if args.sim_model_mode == 'pair':
+                print("Learner: Simulated learner with discrete memory (s=%d) and pairwise updating"
+                      % args.sim_discrete_memory)
+                learner += " (pair)"
+            else:
+                print("Learner: Simulated learner with discrete memory (s=%d) and stochastic updating"
+                      % args.sim_discrete_memory)
+                learner += " (stoch)"
+        elif args.sim_model == 'continuous':
+            print("Learner: Simulated learner with continuous memory")
+            learner = "Continuous"
+        if args.sim_no_noise:
+            print("-- ignoring noise for simulated learners")
+            learner += "(w/o noise)"
 
-        panda_data = panda_data.append(pd.DataFrame({"error": plot_data[i], "step": list(range(max_len))}))
+    print("")
+    if args.policy == 'random':
+        print("Policy: Random actions")
+        model = "Random"
+        plan = "-"
+    else:
+        if args.planning_model == 'memoryless':
+            print("Policy: Planning actions using a memoryless belief model")
+            model = "Memoryless"
+        elif args.planning_model == 'discrete':
+            print("Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            model = "Discrete"
+        elif args.planning_model == 'continuous':
+            print("Policy: Planning actions using a belief model with continuous memory")
+            model = "Continuous"
+        if args.plan_no_noise:
+            print("-- ignoring noise in belief updating")
+            model += " (w/o noise)"
 
-    # data = pd.DataFrame({"data": plot_data})
+        print("Precomputed actions: %d x %d" % (args.plan_pre_horizon, args.plan_pre_samples))
+        print("Online planning: %d x %s" % (args.plan_online_horizon, args.plan_online_samples))
 
-    # sns.lineplot(range(max_len), np.mean(plot_data, axis=0), ci='sd')
-    sns.lineplot(x="step", y="error", data=panda_data, ci='sd')
-    plt.title("Errors during assessment phase")
-    plt.ylim(0)
-    plt.xlim(0)
-    plt.savefig("multi-errors.png")
-    plt.show()
+        plan = "%d x %d pre + %d x %s" % (args.plan_pre_horizon, args.plan_pre_samples,
+                                          args.plan_online_horizon, args.plan_online_samples)
 
-    sns.violinplot(y=time_history)
-    plt.title("Average time to complete")
-    plt.savefig("multi-time.png")
-    plt.show()
+    if not args.single_run:
+        print("\nSimulation: %d trials" % args.sim_count)
+        learner += " x%d" % args.sim_count
 
-    max_actions = max([len(x) for x in action_history])
-    action_types_1 = np.zeros(max_actions)
-    action_types_2 = np.zeros(max_actions)
-    action_types_3 = np.zeros(max_actions)
-    for el in action_history:
-        for i, v in enumerate(el):
-            if v[0].value == 1:
-                action_types_1[i] += 1
-            elif v[0].value == 2:
-                action_types_2[i] += 1
-            elif v[0].value == 3:
-                action_types_3[i] += 1
+    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range-1))
 
-    p1 = plt.bar(range(max_actions), action_types_1)
-    p2 = plt.bar(range(max_actions), action_types_2)
-    p3 = plt.bar(range(max_actions), action_types_3)
-    plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
-    plt.savefig("multi-actions.png")
-    plt.show()
+    print("\n-------------------------\n")
 
-    learned_history = [np.argmin(errors) for errors in error_history]
+    return model_info % (model, learner, plan)
 
-    np.set_printoptions(precision=2)
-    print("\nSome statistics")
-    print(tt.to_string([
-        ["Time"] + ["%.2f" % item
-                    for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
 
-        ["Phases"] + ["%.2f" % item
-                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
-    ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
+def main():
+    parser = setup_arguments()
+    args = parser.parse_args()
+    model_info = describe_arguments(args)
 
-# Notes:
-# - Planning does not return useful actions; sampling issue? (no examples samples);
-#   should it sample equations and then check all types? (although would not strictly be correct)
-# - Belief update questions
-# - Belief update does not scale in planning
+    if args.sim_count == 1:
+        args.single_run = True
+
+    number_range = list(range(0, args.number_range))
+
+    global_time_start = time.time()
+
+    error_history = []
+    action_history = []
+    time_history = []
+
+    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
+    perform_preplanning(args, teacher)
+
+    if args.single_run:
+        iterator = range(1)
+    else:
+        iterator = tqdm(range(args.sim_count))
+
+    for i in iterator:
+        random.seed(args.sim_seed + i)
+        np.random.seed(args.sim_seed + i)
+
+        teacher.reset()
+        learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
+
+        success = teacher.teach()
+
+        if args.single_run:
+            handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+
+            break
+        else:
+            if not success:
+                print("x", end="")
+            else:
+                print(".", end="")
+
+        action_history.append(teacher.action_history)
+        error_history.append(teacher.assessment_history)
+        time_history.append(learner.total_time)
+
+    if not args.single_run:
+        handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info)
+
+
+main()

@@ -11,6 +11,7 @@ DEBUG = False
 class BaseBelief(ABC):
     def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         self.belief_state = belief_state
+        self.belief_state_orig = belief_state.copy()
         self.prior = prior
         self.concept = concept
 
@@ -22,6 +23,9 @@ class BaseBelief(ABC):
         self.states = concept.get_concept_space()
 
         self.verbose = verbose
+
+    def reset(self):
+        self.belief_state = self.belief_state_orig.copy()
 
     def update_belief(self, action_type, result, response):
         # TODO should this be modeled inside the belief update?

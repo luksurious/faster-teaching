@@ -27,6 +27,10 @@ class DiscreteMemoryModel(MemorylessModel):
 
         self.memory = deque(maxlen=memory_size)
 
+    def reset(self):
+        super().reset()
+        self.memory = deque(maxlen=self.memory_size)
+
     def generate_memory_states(self, concept, memory_size):
         concept_actions = concept.get_rl_actions()
         teaching_actions = Actions.all()
