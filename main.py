@@ -1,6 +1,8 @@
+import pickle
 import random
 import argparse
 import time
+from multiprocessing import Pool
 
 from tqdm import tqdm
 
@@ -40,6 +42,9 @@ def setup_arguments():
     parser.add_argument('-s', '--single_run', action="store_true", help="Only run one simulation")
     parser.add_argument('-c', '--sim_count', type=int, default=50, help="Number of simulations to run")
     parser.add_argument('--sim_seed', type=int, default=123, help="Base seed for the different simulation runs")
+    parser.add_argument('--pool', type=int, default=None, help="Number of parallel processes to run the simulation "
+                                                               "in. None (default): use number of processors "
+                                                               "available. 1: no parallelization")
 
     # Task arguments
     parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
@@ -138,12 +143,11 @@ def setup_learner(args, concept, number_range, prior_distribution, teacher):
 
 
 def perform_preplanning(args, teacher):
-    random.seed(args.sim_seed)
-    np.random.seed(args.sim_seed)
-
     setup_start = time.time()
     teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
-    print("Precomputing actions took %.2f s\n" % (time.time() - setup_start))
+
+    if args.plan_pre_horizon > 0:
+        print("Precomputing actions took %.2f s\n" % (time.time() - setup_start))
 
 
 def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
@@ -250,6 +254,41 @@ def describe_arguments(args):
     return model_info % (model, learner, plan)
 
 
+def run_trial(i, args, number_range, setup=True, concept=None, prior_distribution=None, teacher=None):
+    if setup:
+        concept, prior_distribution, teacher = exec_setup(args, number_range, load=True)
+    else:
+        assert concept is not None
+        assert prior_distribution is not None
+        assert teacher is not None
+        teacher.reset()
+
+    random.seed(args.sim_seed + i)
+    np.random.seed(args.sim_seed + i)
+    learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
+
+    success = teacher.teach()
+
+    return i, success, teacher.action_history, teacher.assessment_history, learner.total_time
+
+
+def exec_setup(args, number_range, load=False):
+    random.seed(args.sim_seed)
+    np.random.seed(args.sim_seed)
+    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
+
+    if load:
+        with open('data/actions.pickle', 'rb') as f:
+            teacher.best_action_stack = pickle.load(f)
+    else:
+        perform_preplanning(args, teacher)
+
+        with open('data/actions.pickle', 'wb') as f:
+            pickle.dump(teacher.best_action_stack, f)
+
+    return concept, prior_distribution, teacher
+
+
 def main():
     parser = setup_arguments()
     args = parser.parse_args()
@@ -262,42 +301,56 @@ def main():
 
     global_time_start = time.time()
 
-    error_history = []
-    action_history = []
-    time_history = []
-
-    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
-    perform_preplanning(args, teacher)
-
     if args.single_run:
-        iterator = range(1)
-    else:
-        iterator = tqdm(range(args.sim_count))
+        concept, prior_distribution, teacher = exec_setup(args, number_range)
 
-    failures = []
+        args.verbose = True
 
-    for i in iterator:
-        random.seed(args.sim_seed + i)
-        np.random.seed(args.sim_seed + i)
-
-        teacher.reset()
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
         success = teacher.teach()
+        handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+    else:
+        error_history = []
+        action_history = []
+        time_history = []
+        failures = []
 
-        if args.single_run:
-            handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+        # create objects, and pre-compute actions for all cases
+        # (objects only used in serial execution mode)
+        concept, prior_distribution, teacher = exec_setup(args, number_range)
 
-            break
+        if args.pool != 1:
+            # parallelize execution
+            with Pool(args.pool) as pool:
+                pbar = tqdm(total=args.sim_count)
+
+                def apply_w_bar(i):
+                    result = pool.apply(run_trial, args=(i, args, number_range))
+                    pbar.update()
+                    return result
+
+                iterator = [apply_w_bar(i) for i in range(args.sim_count)]
+                pbar.close()
+
         else:
+            # run on same thread
+            iterator = tqdm(range(args.sim_count))
+
+        for i in iterator:
+            if args.pool != 1:
+                i, success, single_action_history, single_assessment_history, total_time = i
+            else:
+                i, success, single_action_history, single_assessment_history, total_time = \
+                    run_trial(i, args, number_range, setup=False, concept=concept,
+                              prior_distribution=prior_distribution, teacher=teacher)
+
+            error_history.append(single_assessment_history)
+            action_history.append(single_action_history)
+            time_history.append(total_time)
             if not success:
                 failures.append(i)
 
-        action_history.append(teacher.action_history)
-        error_history.append(teacher.assessment_history)
-        time_history.append(learner.total_time)
-
-    if not args.single_run:
         handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info)
 
 
