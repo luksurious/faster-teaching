@@ -39,6 +39,7 @@ def setup_arguments():
     parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
     parser.add_argument('--plan_pre_samples', type=int, default=6,
                         help="Number of samples per planning step for precomputed actions")
+    parser.add_argument('--plan_load_actions', type=str, default=None, help="Path to file with precomputed actions")
 
     # Execution arguments
     parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
@@ -260,7 +261,8 @@ def describe_arguments(args):
 
 def run_trial(i, args, number_range, setup=True, concept=None, prior_distribution=None, teacher=None):
     if setup:
-        concept, prior_distribution, teacher = exec_setup(args, number_range, load=True)
+        concept, prior_distribution, teacher = exec_setup(args, number_range, load=True,
+                                                          load_file=args.plan_load_actions)
     else:
         assert concept is not None
         assert prior_distribution is not None
@@ -276,7 +278,7 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
     return i, success, teacher.action_history, teacher.assessment_history, learner.total_time
 
 
-def exec_setup(args, number_range, load=False):
+def exec_setup(args, number_range, load=False, load_file=None):
     random.seed(args.sim_seed)
     np.random.seed(args.sim_seed)
     concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
@@ -287,7 +289,10 @@ def exec_setup(args, number_range, load=False):
     else:
         perform_preplanning(args, teacher)
 
-        with open('data/actions.pickle', 'wb') as f:
+        if load_file is None:
+            load_file = 'data/actions.pickle'
+
+        with open(load_file, 'wb') as f:
             pickle.dump(teacher.best_action_stack, f)
 
     return concept, prior_distribution, teacher
@@ -305,9 +310,12 @@ def main():
 
     global_time_start = time.time()
 
-    if args.single_run:
-        concept, prior_distribution, teacher = exec_setup(args, number_range)
+    # create objects, and pre-compute actions for all cases
+    # (objects only used in single and serial execution mode)
+    concept, prior_distribution, teacher = exec_setup(args, number_range, load=args.plan_load_actions is not None,
+                                                      load_file=args.plan_load_actions)
 
+    if args.single_run:
         args.verbose = True
 
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
@@ -320,16 +328,15 @@ def main():
         time_history = []
         failures = []
 
-        # create objects, and pre-compute actions for all cases
-        # (objects only used in serial execution mode)
-        concept, prior_distribution, teacher = exec_setup(args, number_range)
+        run_parallel = args.pool != 1
+        progress = None
 
-        if args.pool != 1:
+        if run_parallel:
             # parallelize execution
             pool = Pool(processes=args.pool)
-            pbar = tqdm(total=args.sim_count)
+            progress = tqdm(total=args.sim_count)
 
-            iterator = [pool.apply_async(run_trial, args=(i, args, number_range), callback=lambda x: pbar.update(1))
+            iterator = [pool.apply_async(run_trial, args=(i, args, number_range), callback=lambda x: progress.update(1))
                         for i in range(args.sim_count)]
 
             pool.close()
@@ -339,7 +346,7 @@ def main():
             iterator = tqdm(range(args.sim_count))
 
         for i in iterator:
-            if args.pool != 1:
+            if run_parallel:
                 i, success, single_action_history, single_assessment_history, total_time = i.get()
             else:
                 i, success, single_action_history, single_assessment_history, total_time = \
@@ -352,8 +359,8 @@ def main():
             if not success:
                 failures.append(i)
 
-        if args.pool != 1:
-            pbar.close()
+        if run_parallel and progress:
+            progress.close()
 
         handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info)
 
