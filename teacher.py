@@ -236,6 +236,7 @@ class Teacher:
 
                 parent["children"].append(new_node)
 
+                # TODO test with max
                 if val < min_costs:
                     min_costs = val
 

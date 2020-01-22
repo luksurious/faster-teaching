@@ -2,6 +2,7 @@ import random
 import numpy as np
 
 from concepts.letter_addition import LetterAddition
+from learner_models.continuous import ContinuousModel
 from teacher import Teacher
 
 
@@ -61,7 +62,11 @@ def test_planning2():
     np.random.seed(123)
     concept = LetterAddition(3)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
-    teacher = Teacher(concept)
+
+    prior_distribution = np.array([1 / len(concept.get_concept_space()) for _ in range(len(concept.get_concept_space()))])
+    cont_model = ContinuousModel(prior_distribution, prior_distribution, concept)
+
+    teacher = Teacher(concept, cont_model, is_random=False)
     teacher.setup(0)
 
     # initial belief uniformly distributed

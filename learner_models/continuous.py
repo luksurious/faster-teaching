@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from learner_models.base_belief import BaseBelief
 from concepts.concept_base import ConceptBase
 from actions import Actions
@@ -6,6 +8,9 @@ import math
 import numpy as np
 
 
+# TODO: check particle size evolution and recreation happenings
+#  visualize evolution of beliefs
+#  adapt belief base
 class ContinuousModel(BaseBelief):
 
     def __init__(self, belief_state, prior, concept: ConceptBase, particle_num: int = 16, verbose: bool = True):
@@ -120,7 +125,7 @@ class ContinuousModel(BaseBelief):
         for action_type, result, response in self.action_history:
             # update according to observed data
             # TODO: Q: does that mean only taking examples into account (i.e. observed data?)
-            pass
+            particle2_dist = self.transition_model(particle2_dist, None, action_type, result, None)
 
         self.particle_dists.append(particle2_dist)
         self.particle_weights.append(particle2_weight)
@@ -147,6 +152,14 @@ class ContinuousModel(BaseBelief):
             prob += self.particle_weights[idx] * particle[index]
 
         return prob
+
+    def get_state(self):
+        return deepcopy(self.particle_dists), deepcopy(self.particle_weights), deepcopy(self.action_history)
+
+    def set_state(self, state):
+        self.particle_dists = deepcopy(state[0])
+        self.particle_weights = deepcopy(state[1])
+        self.action_history = deepcopy(state[2])
 
     def __copy__(self):
         return ContinuousModel(self.belief_state.copy(), self.prior, self.concept, self.particle_num, self.verbose)
