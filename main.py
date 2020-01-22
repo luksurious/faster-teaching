@@ -5,6 +5,8 @@ import time
 from multiprocessing import Pool
 
 from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
 
 from concepts.letter_addition import LetterAddition
 from learner_models.continuous import ContinuousModel
@@ -14,7 +16,8 @@ from learners.human_learner import HumanLearner
 from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
-from plots import *
+from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
+    plot_single_actions
 from teacher import Teacher
 
 
@@ -175,7 +178,7 @@ def handle_multi_run_end(args, action_history, error_history, global_time_start,
     plot_multi_actions(action_history, model_info)
     plt.clf()
 
-    print("\nLearning failures: %d/%d = %.2f%%" % (len(failures), args.sim_count, len(failures)/args.sim_count*100))
+    print("\nLearning failures: %d/%d = %.2f%%" % (len(failures), args.sim_count, len(failures) / args.sim_count * 100))
     if len(failures) > 0:
         print("".join(["x" if i in failures else " " for i in range(args.sim_count)]) + "\n")
 
@@ -228,7 +231,8 @@ def describe_arguments(args):
             print("Policy: Planning actions using a memoryless belief model")
             model = "Memoryless"
         elif args.planning_model == 'discrete':
-            print("Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            print(
+                "Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
             model = "Discrete"
         elif args.planning_model == 'continuous':
             print("Policy: Planning actions using a belief model with continuous memory")
@@ -247,7 +251,7 @@ def describe_arguments(args):
         print("\nSimulation: %d trials" % args.sim_count)
         learner += " x%d" % args.sim_count
 
-    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range-1))
+    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range - 1))
 
     print("\n-------------------------\n")
 
@@ -322,16 +326,13 @@ def main():
 
         if args.pool != 1:
             # parallelize execution
-            with Pool(args.pool) as pool:
-                pbar = tqdm(total=args.sim_count)
+            pool = Pool(processes=args.pool)
+            pbar = tqdm(total=args.sim_count)
 
-                def apply_w_bar(i):
-                    result = pool.apply(run_trial, args=(i, args, number_range))
-                    pbar.update()
-                    return result
+            iterator = [pool.apply_async(run_trial, args=(i, args, number_range), callback=lambda x: pbar.update(1))
+                        for i in range(args.sim_count)]
 
-                iterator = [apply_w_bar(i) for i in range(args.sim_count)]
-                pbar.close()
+            pool.close()
 
         else:
             # run on same thread
@@ -339,7 +340,7 @@ def main():
 
         for i in iterator:
             if args.pool != 1:
-                i, success, single_action_history, single_assessment_history, total_time = i
+                i, success, single_action_history, single_assessment_history, total_time = i.get()
             else:
                 i, success, single_action_history, single_assessment_history, total_time = \
                     run_trial(i, args, number_range, setup=False, concept=concept,
@@ -351,7 +352,11 @@ def main():
             if not success:
                 failures.append(i)
 
+        if args.pool != 1:
+            pbar.close()
+
         handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info)
 
 
-main()
+if __name__ == '__main__':
+    main()
