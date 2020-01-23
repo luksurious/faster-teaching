@@ -7,6 +7,10 @@ from concepts.concept_base import ConceptBase
 from learners.sim_memoryless_learner import SimMemorylessLearner
 
 
+IGNORE_QUIZ_MEMORY = True
+KEEP_IGNORED_ACTIONS = True
+
+
 class SimDiscreteLearner(SimMemorylessLearner):
     def __init__(self, concept: ConceptBase, number_range: list, prior_distribution, memory_size: int = 2):
         super().__init__(concept, number_range, prior_distribution)
@@ -119,7 +123,9 @@ class SimDiscreteLearner(SimMemorylessLearner):
         return self.self_evaluate(memory_item[0]) == memory_item[1]
 
     def finish_action(self, action_data):
-        if not self.ignored_transition:
+        if IGNORE_QUIZ_MEMORY and action_data[1] is None:
+            pass
+        elif not self.ignored_transition or KEEP_IGNORED_ACTIONS:
             self.memory.append(action_data)
 
         self.ignored_transition = False

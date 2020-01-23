@@ -60,7 +60,7 @@ def test_precompute():
 def test_planning2():
     random.seed(123)
     np.random.seed(123)
-    concept = LetterAddition(3)
+    concept = LetterAddition(6)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
 
     prior_distribution = np.array([1 / len(concept.get_concept_space()) for _ in range(len(concept.get_concept_space()))])
@@ -73,11 +73,12 @@ def test_planning2():
     tree = {
         "children": []
     }
-    teacher.forward_plan(teacher.belief, tree, 2, [2]*2)
+    teacher.forward_plan(teacher.belief, tree, 3, [4]*3)
 
     print("")
     print(concept.get_true_concepts())
-    teacher.print_plan_tree(tree)
+    # teacher.print_plan_tree(tree)
 
+    print("Optimal path")
     print(teacher.find_optimal_action_path(tree))
 

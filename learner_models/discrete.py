@@ -8,6 +8,9 @@ from actions import Actions
 import numpy as np
 
 
+IGNORE_QUIZ_MEMORY = True
+
+
 class DiscreteMemoryModel(MemorylessModel):
 
     def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, verbose: bool = True):
@@ -20,7 +23,7 @@ class DiscreteMemoryModel(MemorylessModel):
 
         # TODO devolves into asking only quizzes at some point?
 
-        self.transition_noise = 0.34 / self.prior_pos_len  # pretty high
+        self.transition_noise = 0.34  # / self.prior_pos_len  # pretty high
         self.production_noise = 0.046
 
         self.memory_size = memory_size
@@ -56,6 +59,9 @@ class DiscreteMemoryModel(MemorylessModel):
         self.belief_state = np.array(combined_belief)
 
     def see_action(self, action_type, action):
+        if IGNORE_QUIZ_MEMORY and action_type == Actions.QUIZ:
+            return
+
         self.memory.append((action_type, action))
 
     def get_state(self):
@@ -83,6 +89,25 @@ class DiscreteMemoryModel(MemorylessModel):
             new_belief[idx] = p_z * p_s
 
         return new_belief
+
+    def trans_update(self, action, new_belief):
+        # state might have changed
+        consistent_states = self.state_action_values[action[0]] == action[1]
+        const_indices = np.argwhere(consistent_states)
+
+        if len(self.memory) > 0:
+            for idx in const_indices:
+                # check if consistent with memory
+                cons_w_memory = self.matches_memory(self.states[idx[0]])
+                consistent_states[idx[0]] = cons_w_memory
+
+        # TODO assuming uniform prior
+        transition_prob = 1 / len(self.prior[consistent_states]) * (1 - self.transition_noise) \
+                          * np.sum(self.belief_state[consistent_states == False])
+
+        new_belief[consistent_states == False] = self.belief_state[consistent_states == False] * self.transition_noise
+
+        new_belief[consistent_states] = self.belief_state[consistent_states] + transition_prob
 
     def transition_model(self, new_state, new_idx, action_type, action, concept_val):
         """

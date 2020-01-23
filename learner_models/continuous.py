@@ -8,7 +8,7 @@ import math
 import numpy as np
 
 
-# TODO: check particle size evolution and recreation happenings
+# TODO: verify recreation of particles based on history
 #  visualize evolution of beliefs
 #  adapt belief base
 class ContinuousModel(BaseBelief):
@@ -21,9 +21,13 @@ class ContinuousModel(BaseBelief):
 
         self.particle_num = particle_num
 
-        self.particle_dists = []
-        self.particle_weights = []
+        self.particle_dists = np.zeros((2*particle_num, len(self.states)))
+        self.particle_weights = np.zeros(2*particle_num)
+        self.valid_particles = np.array([False]*particle_num*2)
+
         self.init_particles(prior)
+
+        self.action_history = []
 
         self.particle_depletion_limit = 0.005
 
@@ -34,15 +38,16 @@ class ContinuousModel(BaseBelief):
         self.state_action_values = {}
         self.pre_calc_state_values()
 
-        self.action_history = []
-
     def init_particles(self, prior):
         # init particles
-        particle1_dist = prior.copy()
+        particle1_dist = np.copy(prior)
         particle1_weight = 1
-        self.particle_dists.append(particle1_dist)
-        self.particle_weights.append(particle1_weight)
+        self.particle_dists[0] = particle1_dist
+        self.particle_weights[0] = particle1_weight
+        self.valid_particles[0] = True
+
         # TODO if prior is not uniform
+        # TODO verify
         # particle2_dist = prior.copy()
         # particle2_weight = 0.5
 
@@ -57,69 +62,81 @@ class ContinuousModel(BaseBelief):
 
         if response is not None:
             # update based on response
-            for idx, particle in enumerate(self.particle_dists):
-                current_weight = self.particle_weights[idx]
-
-                p_z = self.observation_model(response, particle, action_type, result, None)
-                new_weight = current_weight * ((1 - self.production_noise) * p_z + self.production_noise_per_response)
-
-                self.particle_weights[idx] = new_weight
-
-            # check for particle depletion
-            if max(self.particle_weights) < self.particle_depletion_limit:
-                self.recreate_particles()
-            else:
-                # normalize
-                weight_sum = np.sum(self.particle_weights)
-                self.particle_weights = [w/weight_sum for w in self.particle_weights]
+            self.update_from_response(response, result)
 
         if action_type != Actions.QUIZ:
             # update based on content
+            self.update_from_content(result)
 
-            new_particles = []
-            new_particle_weights = []
-            for idx, particle in enumerate(self.particle_dists):
-                particle_weight = self.particle_weights[idx]
+    def update_from_content(self, result):
+        concepts_inconsistent = self.state_action_values[result[0]] != result[1]
+        fillable_slots = np.argwhere(self.valid_particles == False).ravel().tolist()
 
-                # particle for not being transitioned
-                non_transition_particle = particle.copy()
-                non_transition_weight = particle_weight * self.transition_noise
-                new_particles.append(non_transition_particle)
-                new_particle_weights.append(non_transition_weight)
+        valid_indices = np.argwhere(self.valid_particles).ravel()
+        for idx in valid_indices:
+            particle = self.particle_dists[idx]
+            particle_weight = self.particle_weights[idx]
 
-                transitioned_particle = self.transition_model(particle, idx, action_type, result, None)
-                transitioned_weight = particle_weight * (1 - self.transition_noise)
-                new_particles.append(transitioned_particle)
-                new_particle_weights.append(transitioned_weight)
+            # new particle if transitioned
+            transitioned_particle = np.copy(particle)
+            transitioned_particle[concepts_inconsistent] = 0
+            transitioned_particle /= np.sum(transitioned_particle)
+            transitioned_weight = particle_weight * (1 - self.transition_noise)
 
-            self.particle_dists = new_particles
-            self.particle_weights = new_particle_weights
+            new_idx = fillable_slots.pop(0)
+            self.particle_dists[new_idx] = transitioned_particle
+            self.particle_weights[new_idx] = transitioned_weight
+            self.valid_particles[new_idx] = True
 
-            # check for particle depletion
-            if max(self.particle_weights) < self.particle_depletion_limit:
-                self.recreate_particles()
+            # particle for not being transitioned stays the same
+            self.particle_weights[idx] = particle_weight * self.transition_noise
 
-            if len(self.particle_dists) > self.particle_num:
+        # check for particle depletion
+        # TODO verify: sum here instead of max
+        weight_sum = np.sum(self.particle_weights[self.valid_particles])
+        if weight_sum < self.particle_depletion_limit:
+            self.recreate_particles()
 
-                while len(self.particle_dists) > self.particle_num:
-                    min_idx = np.argmin(self.particle_weights)
-                    del self.particle_dists[min_idx]
-                    del self.particle_weights[min_idx]
+        if np.count_nonzero(self.valid_particles) > self.particle_num:
+            remove_count = np.count_nonzero(self.valid_particles) - self.particle_num
 
-            # re-normalize weights
-            weight_sum = np.sum(self.particle_weights)
-            self.particle_weights = [w/weight_sum for w in self.particle_weights]
+            lowest_idx = np.argpartition(self.particle_weights, -remove_count)
+            self.valid_particles[lowest_idx] = False
+            self.particle_weights[lowest_idx] = 0
+        # re-normalize weights
+        self.particle_weights[self.valid_particles] /= np.sum(self.particle_weights[self.valid_particles])
+
+    def update_from_response(self, response, result):
+        concepts_w_val = self.state_action_values[result[0]] == response
+        valid_indices = np.argwhere(self.valid_particles).ravel()
+        for idx in valid_indices:
+            current_weight = self.particle_weights[idx]
+
+            p_z = np.sum(self.particle_dists[idx][concepts_w_val])
+            new_weight = current_weight * ((1 - self.production_noise) * p_z + self.production_noise_per_response)
+
+            self.particle_weights[idx] = new_weight
+        # check for particle depletion
+        if np.max(self.particle_weights) < self.particle_depletion_limit:
+            self.recreate_particles()
+        else:
+            # normalize
+            # TODO paper remark: checking for depletion before re-normalizing?
+            self.particle_weights /= np.sum(self.particle_weights)
 
     def recreate_particles(self):
-        self.particle_dists = []
-        self.particle_weights = []
-        particle1_dist = self.prior.copy()
+        self.particle_dists = np.zeros_like(self.particle_dists)
+        self.particle_weights = np.zeros_like(self.particle_weights)
+        self.valid_particles = np.array([False]*self.particle_num*2)
+
+        particle1_dist = np.copy(self.prior)
         particle1_weight = 0.5
-        self.particle_dists.append(particle1_dist)
-        self.particle_weights.append(particle1_weight)
+        self.particle_dists[0] = particle1_dist
+        self.particle_weights[0] = particle1_weight
+        self.valid_particles[0] = True
 
         # particle 2: consistent with observed data
-        particle2_dist = self.prior.copy()
+        particle2_dist = np.copy(self.prior)
         particle2_weight = 0.5
 
         for action_type, result, response in self.action_history:
@@ -127,8 +144,9 @@ class ContinuousModel(BaseBelief):
             # TODO: Q: does that mean only taking examples into account (i.e. observed data?)
             particle2_dist = self.transition_model(particle2_dist, None, action_type, result, None)
 
-        self.particle_dists.append(particle2_dist)
-        self.particle_weights.append(particle2_weight)
+        self.particle_dists[1] = particle2_dist
+        self.particle_weights[1] = particle2_weight
+        self.valid_particles[1] = True
 
     def observation_model(self, observation, new_state, action_type, action, concept_val):
         concepts_w_val = self.state_action_values[action[0]] == observation
@@ -148,18 +166,33 @@ class ContinuousModel(BaseBelief):
     def get_concept_prob(self, index):
         prob = 0
 
-        for idx, particle in enumerate(self.particle_dists):
-            prob += self.particle_weights[idx] * particle[index]
+        for idx in np.argwhere(self.valid_particles).ravel():
+            prob += self.particle_weights[idx] * self.particle_dists[idx][index]
 
         return prob
 
     def get_state(self):
-        return deepcopy(self.particle_dists), deepcopy(self.particle_weights), deepcopy(self.action_history)
+        return np.copy(self.particle_dists), np.copy(self.particle_weights), np.copy(self.valid_particles),\
+               self.action_history.copy()
 
     def set_state(self, state):
-        self.particle_dists = deepcopy(state[0])
-        self.particle_weights = deepcopy(state[1])
-        self.action_history = deepcopy(state[2])
+        self.particle_dists = np.copy(state[0])
+        self.particle_weights = np.copy(state[1])
+        self.valid_particles = np.copy(state[2])
+        self.action_history = state[3].copy()
+
+    def reset(self):
+        self.particle_dists = np.zeros((2*self.particle_num, len(self.states)))
+        self.particle_weights = np.zeros(2*self.particle_num)
+        self.valid_particles = np.array([False]*self.particle_num*2)
+
+        self.init_particles(self.prior)
+
+        self.action_history = []
 
     def __copy__(self):
-        return ContinuousModel(self.belief_state.copy(), self.prior, self.concept, self.particle_num, self.verbose)
+        state = self.get_state()
+        new_model = ContinuousModel(self.belief_state.copy(), self.prior, self.concept, self.particle_num, self.verbose)
+        new_model.set_state(state)
+
+        return new_model

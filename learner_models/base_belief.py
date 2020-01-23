@@ -31,17 +31,16 @@ class BaseBelief(ABC):
         # TODO should this be modeled inside the belief update?
         # transition noise probability: no state change;
         # if action_type == Actions.QUIZ or np.random.random() >= self.transition_noise:
-        if True:
 
-            if action_type == Actions.QUESTION:
-                # Handle question as two step action
-                new_belief = self.calc_new_belief(Actions.QUIZ, response, result)
-                self.belief_state = new_belief
-                new_belief = self.calc_new_belief(Actions.EXAMPLE, None, result)
-            else:
-                new_belief = self.calc_new_belief(action_type, response, result)
+        # if action_type == Actions.QUESTION:
+            # Handle question as two step action
+            # new_belief = self.calc_new_belief(Actions.QUIZ, response, result)
+            # self.belief_state = new_belief
+            # new_belief = self.calc_new_belief(Actions.EXAMPLE, None, result)
+        # else:
+        new_belief = self.calc_new_belief(action_type, response, result)
 
-            self.belief_state = new_belief
+        self.belief_state = new_belief
 
         self.see_action(action_type, result)
 
