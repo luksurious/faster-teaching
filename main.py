@@ -1,17 +1,23 @@
+import pickle
 import random
 import argparse
 import time
+from multiprocessing import Pool
 
 from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
 
 from concepts.letter_addition import LetterAddition
+from learner_models.continuous import ContinuousModel
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
 from learners.human_learner import HumanLearner
 from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
-from plots import *
+from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
+    plot_single_actions
 from teacher import Teacher
 
 
@@ -22,8 +28,7 @@ def setup_arguments():
     parser.add_argument('planning_model', type=str, default="memoryless",
                         choices=["memoryless", "discrete", "continuous"], nargs='?',
                         help="Which learner model to use during planning for updating the belief")
-    parser.add_argument('policy', type=str, default="plan", choices=["plan", "random"], nargs='?',
-                        help='Select the policy of the teacher: "plan" (default) or "random"')
+    parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
     parser.add_argument('--plan_discrete_memory', type=int, default=2,
                         help="Size of the memory for the planning model")
@@ -34,12 +39,16 @@ def setup_arguments():
     parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
     parser.add_argument('--plan_pre_samples', type=int, default=6,
                         help="Number of samples per planning step for precomputed actions")
+    parser.add_argument('--plan_load_actions', type=str, default=None, help="Path to file with precomputed actions")
 
     # Execution arguments
     parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
     parser.add_argument('-s', '--single_run', action="store_true", help="Only run one simulation")
     parser.add_argument('-c', '--sim_count', type=int, default=50, help="Number of simulations to run")
     parser.add_argument('--sim_seed', type=int, default=123, help="Base seed for the different simulation runs")
+    parser.add_argument('--pool', type=int, default=None, help="Number of parallel processes to run the simulation "
+                                                               "in. None (default): use number of processors "
+                                                               "available. 1: no parallelization")
 
     # Task arguments
     parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
@@ -94,7 +103,8 @@ def create_belief_model(args, prior_distribution, concept):
         belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
     elif args.planning_model == 'continuous':
-        raise Exception("Not yet implemented")
+        particle_limit = 16
+        belief = ContinuousModel(prior_distribution.copy(), prior_distribution, concept, particle_limit, args.verbose)
     else:
         raise Exception("Unknown simulation model")
 
@@ -106,7 +116,7 @@ def create_belief_model(args, prior_distribution, concept):
 
 
 def create_teacher(args, concept, belief):
-    teacher = Teacher(concept, belief, args.policy, args.teaching_phase_actions, args.max_teaching_phases)
+    teacher = Teacher(concept, belief, args.random, args.teaching_phase_actions, args.max_teaching_phases)
     teacher.verbose = args.verbose
     teacher.plan_horizon = args.plan_online_horizon
     teacher.plan_samples = args.plan_online_samples
@@ -137,12 +147,11 @@ def setup_learner(args, concept, number_range, prior_distribution, teacher):
 
 
 def perform_preplanning(args, teacher):
-    random.seed(args.sim_seed)
-    np.random.seed(args.sim_seed)
-
     setup_start = time.time()
     teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
-    print("Precomputing actions took %.2f s" % (time.time() - setup_start))
+
+    if args.plan_pre_horizon > 0:
+        print("Precomputing actions took %.2f s\n" % (time.time() - setup_start))
 
 
 def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
@@ -160,7 +169,7 @@ def handle_single_run_end(global_time_start, learner, success, teacher, model_in
     plot_single_actions(teacher.action_history, model_info)
 
 
-def handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info):
+def handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info):
     plot_multi_errors(error_history, model_info)
     plt.clf()
 
@@ -169,6 +178,10 @@ def handle_multi_run_end(action_history, error_history, global_time_start, time_
 
     plot_multi_actions(action_history, model_info)
     plt.clf()
+
+    print("\nLearning failures: %d/%d = %.2f%%" % (len(failures), args.sim_count, len(failures) / args.sim_count * 100))
+    if len(failures) > 0:
+        print("".join(["x" if i in failures else " " for i in range(args.sim_count)]) + "\n")
 
     print_statistics_table(error_history, time_history)
     print("Global time elapsed: %.2f" % (time.time() - global_time_start))
@@ -208,16 +221,19 @@ def describe_arguments(args):
             learner += "(w/o noise)"
 
     print("")
-    if args.policy == 'random':
+    if args.random:
         print("Policy: Random actions")
         model = "Random"
         plan = "-"
+        args.plan_pre_horizon = 0
+        args.plan_online_horizon = 0
     else:
         if args.planning_model == 'memoryless':
             print("Policy: Planning actions using a memoryless belief model")
             model = "Memoryless"
         elif args.planning_model == 'discrete':
-            print("Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            print(
+                "Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
             model = "Discrete"
         elif args.planning_model == 'continuous':
             print("Policy: Planning actions using a belief model with continuous memory")
@@ -236,11 +252,50 @@ def describe_arguments(args):
         print("\nSimulation: %d trials" % args.sim_count)
         learner += " x%d" % args.sim_count
 
-    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range-1))
+    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range - 1))
 
     print("\n-------------------------\n")
 
     return model_info % (model, learner, plan)
+
+
+def run_trial(i, args, number_range, setup=True, concept=None, prior_distribution=None, teacher=None):
+    if setup:
+        concept, prior_distribution, teacher = exec_setup(args, number_range, load=True,
+                                                          load_file=args.plan_load_actions)
+    else:
+        assert concept is not None
+        assert prior_distribution is not None
+        assert teacher is not None
+        teacher.reset()
+
+    random.seed(args.sim_seed + i)
+    np.random.seed(args.sim_seed + i)
+    learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
+
+    success = teacher.teach()
+
+    return i, success, teacher.action_history, teacher.assessment_history, learner.total_time
+
+
+def exec_setup(args, number_range, load=False, load_file=None):
+    random.seed(args.sim_seed)
+    np.random.seed(args.sim_seed)
+    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
+
+    if load:
+        with open('data/actions.pickle', 'rb') as f:
+            teacher.best_action_stack = pickle.load(f)
+    else:
+        perform_preplanning(args, teacher)
+
+        if load_file is None:
+            load_file = 'data/actions.pickle'
+
+        with open(load_file, 'wb') as f:
+            pickle.dump(teacher.best_action_stack, f)
+
+    return concept, prior_distribution, teacher
 
 
 def main():
@@ -255,43 +310,60 @@ def main():
 
     global_time_start = time.time()
 
-    error_history = []
-    action_history = []
-    time_history = []
-
-    concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
-    perform_preplanning(args, teacher)
+    # create objects, and pre-compute actions for all cases
+    # (objects only used in single and serial execution mode)
+    concept, prior_distribution, teacher = exec_setup(args, number_range, load=args.plan_load_actions is not None,
+                                                      load_file=args.plan_load_actions)
 
     if args.single_run:
-        iterator = range(1)
-    else:
-        iterator = tqdm(range(args.sim_count))
+        args.verbose = True
 
-    for i in iterator:
-        random.seed(args.sim_seed + i)
-        np.random.seed(args.sim_seed + i)
-
-        teacher.reset()
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
         success = teacher.teach()
+        handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+    else:
+        error_history = []
+        action_history = []
+        time_history = []
+        failures = []
 
-        if args.single_run:
-            handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+        run_parallel = args.pool != 1
+        progress = None
 
-            break
+        if run_parallel:
+            # parallelize execution
+            pool = Pool(processes=args.pool)
+            progress = tqdm(total=args.sim_count)
+
+            iterator = [pool.apply_async(run_trial, args=(i, args, number_range), callback=lambda x: progress.update(1))
+                        for i in range(args.sim_count)]
+
+            pool.close()
+
         else:
-            if not success:
-                print("x", end="")
+            # run on same thread
+            iterator = tqdm(range(args.sim_count))
+
+        for i in iterator:
+            if run_parallel:
+                i, success, single_action_history, single_assessment_history, total_time = i.get()
             else:
-                print(".", end="")
+                i, success, single_action_history, single_assessment_history, total_time = \
+                    run_trial(i, args, number_range, setup=False, concept=concept,
+                              prior_distribution=prior_distribution, teacher=teacher)
 
-        action_history.append(teacher.action_history)
-        error_history.append(teacher.assessment_history)
-        time_history.append(learner.total_time)
+            error_history.append(single_assessment_history)
+            action_history.append(single_action_history)
+            time_history.append(total_time)
+            if not success:
+                failures.append(i)
 
-    if not args.single_run:
-        handle_multi_run_end(action_history, error_history, global_time_start, time_history, model_info)
+        if run_parallel and progress:
+            progress.close()
+
+        handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info)
 
 
-main()
+if __name__ == '__main__':
+    main()

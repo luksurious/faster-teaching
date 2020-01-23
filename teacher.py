@@ -16,14 +16,14 @@ class Teacher:
         Actions.QUESTION: 12.0
     }
 
-    def __init__(self, concept: ConceptBase, belief: BaseBelief, policy, learning_phase_len: int = 3,
+    def __init__(self, concept: ConceptBase, belief: BaseBelief, is_random: bool, learning_phase_len: int = 3,
                  max_phases: int = 40):
         self.learning_phase_len = learning_phase_len
         self.max_phases = max_phases
 
         self.gamma = 0.99
 
-        if policy == 'random':
+        if is_random:
             self.strategy = self.choose_random_action
         else:
             self.strategy = self.choose_best
@@ -236,6 +236,7 @@ class Teacher:
 
                 parent["children"].append(new_node)
 
+                # TODO test with max
                 if val < min_costs:
                     min_costs = val
 
@@ -294,7 +295,7 @@ class Teacher:
     def estimate_belief(self, belief: BaseBelief):
         # TODO move to concept
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
-        return (1 - belief.belief_state[self.true_concept_pos]) * 10 * min(self.ACTION_COSTS.values())
+        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.ACTION_COSTS.values())
 
     def enroll_learner(self, learner):
         self.learner = learner

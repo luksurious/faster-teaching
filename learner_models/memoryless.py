@@ -11,7 +11,8 @@ class MemorylessModel(BaseBelief):
     def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
         super().__init__(belief_state, prior, concept, verbose)
 
-        self.transition_noise = 0.15 / self.prior_pos_len
+        self.transition_noise = 0.15  # / self.prior_pos_len
+        self.observation_len = len(concept.get_observation_space())
         self.production_noise = 0.019
 
         self.state_matches = {}
@@ -36,6 +37,38 @@ class MemorylessModel(BaseBelief):
             self.state_action_values[action] = np.zeros(len(self.states))
             for idx, state in enumerate(self.states):
                 self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state, idx)
+
+    # preplanning: 3x10 took 477.86s
+    def calc_belief_updates(self, action_type, action, observation):
+        new_belief = np.zeros_like(self.belief_state)
+
+        if observation is not None:
+            self.obs_update(action, new_belief, observation)
+
+        if action_type != Actions.QUIZ:
+            self.trans_update(action, new_belief)
+
+        return new_belief
+
+    def trans_update(self, action, new_belief):
+        # state might have changed
+        consistent_states = self.state_action_values[action[0]] == action[1]
+        # TODO assuming uniform prior
+        transition_prob = 1 / len(self.prior[consistent_states]) * (1 - self.transition_noise) \
+                          * np.sum(self.belief_state[consistent_states == False])
+        new_belief[consistent_states == False] = self.belief_state[consistent_states == False] * self.transition_noise
+        new_belief[consistent_states] = self.belief_state[consistent_states] + transition_prob
+
+    def obs_update(self, action, new_belief, observation):
+        # Quiz/Feedback action
+        # belief can be sharpened
+        consistent_states = self.state_action_values[action[0]] == observation
+        # prob of consistent concepts with observation and action --> 1-e
+        new_belief[consistent_states] = self.belief_state[consistent_states] \
+                                        * ((1 - self.production_noise) + self.production_noise / self.observation_len)
+        # prob of inconsistent concepts with observation and action --> e
+        new_belief[consistent_states == False] = self.belief_state[consistent_states == False] \
+                                                 * self.production_noise / self.observation_len
 
     def observation_model(self, observation, new_state, action_type, action, concept_val):
         """
