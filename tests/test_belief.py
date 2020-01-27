@@ -86,8 +86,45 @@ def test_belief_three_quiz_correct_with_uniform_prior():
                              equation=(0, 1),  # A + B
                              cur_belief=[1 / 6 for _ in range(6)],
                              action=Actions.QUIZ,
+                             response=2,
+                             expected=[0., 0.5, 0., 0., 0.5, 0.])
+
+
+def test_belief_three_question_correct():
+    random.seed(123)
+    np.random.seed(123)
+
+    concept = LetterAddition(3)
+
+    assert np.all(concept.get_true_concepts() == [0, 2, 1])  # A = 0, B = 2, C = 1
+
+    belief = create_test_belief_memoryless(concept)
+
+    check_update_belief_with(belief,
+                             equation=(0, 1),  # A + B
+                             cur_belief=[1 / 6 for _ in range(6)],
+                             action=Actions.QUESTION,
                              true=2,
                              response=2,
+                             expected=[0., 0.5, 0., 0., 0.5, 0.])
+
+
+def test_belief_three_question_incorrect():
+    random.seed(123)
+    np.random.seed(123)
+
+    concept = LetterAddition(3)
+
+    assert np.all(concept.get_true_concepts() == [0, 2, 1])  # A = 0, B = 2, C = 1
+
+    belief = create_test_belief_memoryless(concept)
+
+    check_update_belief_with(belief,
+                             equation=(0, 1),  # A + B
+                             cur_belief=[1 / 6 for _ in range(6)],
+                             action=Actions.QUESTION,
+                             true=2,
+                             response=1,
                              expected=[0., 0.5, 0., 0., 0.5, 0.])
 
 
@@ -105,7 +142,6 @@ def test_belief_three_quiz_false_with_uniform_prior():
                              equation=(0, 1),  # A + B
                              cur_belief=[1 / 6 for _ in range(6)],
                              action=Actions.QUIZ,
-                             true=2,
                              response=1,
                              expected=[.5, 0., .5, 0., 0., 0.])
 
@@ -124,7 +160,6 @@ def test_belief_three_quiz_invalid():
                              equation=(0, 1),  # A + B
                              cur_belief=[1 / 6 for _ in range(6)],
                              action=Actions.QUIZ,
-                             true=1,
                              response=5,
                              # reset
                              expected=[1 / 6 for _ in range(6)])
@@ -152,7 +187,6 @@ def test_belief_three_example_quiz_correct():
                              equation=(0, 1),  # A + B
                              cur_belief=[0., 0.5, 0., 0., 0.5, 0.],
                              action=Actions.QUIZ,
-                             true=2,
                              response=2,
                              expected=[0., 0.5, 0., 0., 0.5, 0.])
 
@@ -179,13 +213,12 @@ def test_belief_three_example_quiz_inconsistent():
                              equation=(0, 1),  # A + B
                              cur_belief=[0., 0.5, 0., 0., 0.5, 0.],
                              action=Actions.QUIZ,
-                             true=2,
                              response=1,
                              # ignore cur belief
                              expected=[.5, 0., .5, 0., 0., 0.])
 
 
-def check_update_belief_with(belief, cur_belief, action, true, response, equation, expected):
+def check_update_belief_with(belief, cur_belief, action, response, equation, expected, true=None):
     assert np.allclose(belief.belief_state, np.array(cur_belief))
     belief.update_belief(action, (equation, true), response)
     assert np.allclose(belief.belief_state, np.array(expected))
@@ -201,6 +234,7 @@ def create_test_belief_memoryless(concept, cur_belief=None):
     belief = MemorylessModel(cur_belief, prior, concept)
     belief.transition_noise = 0
     belief.production_noise = 0
+    belief.obs_noise_prob = 0
     return belief
 
 

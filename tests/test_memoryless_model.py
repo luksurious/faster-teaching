@@ -14,6 +14,7 @@ def test_check_production_noise():
 
     model = MemorylessModel(state_space, prior_distribution, concept)
     model.production_noise = 0
+    model.obs_noise_prob = 0
 
     belief = np.zeros_like(prior_distribution)
     for idx, new_state in enumerate(state_space):

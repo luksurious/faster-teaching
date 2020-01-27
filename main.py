@@ -104,13 +104,14 @@ def create_belief_model(args, prior_distribution, concept):
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
     elif args.planning_model == 'continuous':
         particle_limit = 16
-        belief = ContinuousModel(prior_distribution.copy(), prior_distribution, concept, particle_limit, args.verbose)
+        belief = ContinuousModel(prior_distribution, concept, particle_limit, verbose=args.verbose)
     else:
         raise Exception("Unknown simulation model")
 
     if args.plan_no_noise:
         belief.transition_noise = 0
         belief.production_noise = 0
+        belief.obs_noise_prob = 0
 
     return belief
 
@@ -261,8 +262,8 @@ def describe_arguments(args):
 
 def run_trial(i, args, number_range, setup=True, concept=None, prior_distribution=None, teacher=None):
     if setup:
-        concept, prior_distribution, teacher = exec_setup(args, number_range, load=True,
-                                                          load_file=args.plan_load_actions)
+        concept, prior_distribution, teacher, _ = exec_setup(args, number_range, load=True,
+                                                             load_file=args.plan_load_actions)
     else:
         assert concept is not None
         assert prior_distribution is not None
@@ -273,7 +274,12 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
     np.random.seed(args.sim_seed + i)
     learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
-    success = teacher.teach()
+    success = False
+    try:
+        success = teacher.teach()
+    except Exception as e:
+        print("Got exception %s" % str(e))
+        print("- In iteration %d" % i)
 
     return i, success, teacher.action_history, teacher.assessment_history, learner.total_time
 
@@ -295,7 +301,7 @@ def exec_setup(args, number_range, load=False, load_file=None):
         with open(load_file, 'wb') as f:
             pickle.dump(teacher.best_action_stack, f)
 
-    return concept, prior_distribution, teacher
+    return concept, prior_distribution, teacher, belief
 
 
 def main():
@@ -312,16 +318,16 @@ def main():
 
     # create objects, and pre-compute actions for all cases
     # (objects only used in single and serial execution mode)
-    concept, prior_distribution, teacher = exec_setup(args, number_range, load=args.plan_load_actions is not None,
-                                                      load_file=args.plan_load_actions)
+    concept, prior_distribution, teacher, belief = exec_setup(args, number_range, load=args.plan_load_actions is not None,
+                                                              load_file=args.plan_load_actions)
 
     if args.single_run:
-        args.verbose = True
-
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
         success = teacher.teach()
         handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+
+        print("History particle checks: %d" % belief.history_calcs)
     else:
         error_history = []
         action_history = []

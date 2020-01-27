@@ -2,57 +2,48 @@ from copy import deepcopy
 
 from learner_models.base_belief import BaseBelief
 from concepts.concept_base import ConceptBase
-from actions import Actions
 
-import math
 import numpy as np
 
 
-# TODO: verify recreation of particles based on history
-#  visualize evolution of beliefs
-#  adapt belief base
 class ContinuousModel(BaseBelief):
-
-    def __init__(self, belief_state, prior, concept: ConceptBase, particle_num: int = 16, verbose: bool = True):
-        super().__init__(belief_state, prior, concept, verbose)
-
-        self.transition_noise = 0.14  # / self.prior_pos_len
-        self.production_noise = 0.12
+    # What is not so nice is that the two other models use an explicit belief over the hypotheses (self.belief_state)
+    # which is not used here. It's a bit of an inconsistent extension but the setup & caching is still the same
+    def __init__(self, prior, concept: ConceptBase, particle_num: int = 16, trans_noise: float = 0.14,
+                 prod_noise: float = 0.12, verbose: bool = True):
+        super().__init__([], prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
 
         self.particle_num = particle_num
 
         self.particle_dists = []
         self.particle_weights = []
-        self.init_particles(prior)
+        self.init_particles()
 
         self.action_history = []
 
         self.particle_depletion_limit = 0.005
 
-        self.production_noise_per_response = self.production_noise / len(concept.get_observation_space())
+        self.history_calcs = 0
 
-        # pre-calculate state-action concept values
-        # TODO duplicated as in letter addition?
-        self.state_action_values = {}
-        self.pre_calc_state_values()
-
-    def init_particles(self, prior):
+    def init_particles(self):
         # init particles
-        particle1_dist = np.copy(prior)
-        particle1_weight = 1
+        # Uniform particle
+        particle1_dist = np.ones(len(self.hypotheses)) / len(self.hypotheses)
+        particle1_weight = 0.5
         self.particle_dists.append(particle1_dist)
         self.particle_weights.append(particle1_weight)
 
-        # TODO if prior is not uniform
-        # TODO verify
-        # particle2_dist = prior.copy()
-        # particle2_weight = 0.5
+        # Prior particle
+        particle2_dist = np.copy(self.prior)
 
-    def pre_calc_state_values(self):
-        for action in self.concept.get_rl_actions():
-            self.state_action_values[action] = np.zeros(len(self.states))
-            for idx, state in enumerate(self.states):
-                self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state, idx)
+        # TODO paper note: if particles same, ignore
+        if np.allclose(particle2_dist, particle1_dist):
+            self.particle_weights[0] = 1
+            return
+
+        particle2_weight = 0.5
+        self.particle_dists.append(particle2_dist)
+        self.particle_weights.append(particle2_weight)
 
     def update_belief(self, action_type, result, response):
         self.action_history.append((action_type, result, response))
@@ -61,48 +52,63 @@ class ContinuousModel(BaseBelief):
             # update based on response
             self.update_from_response(response, result)
 
-        if action_type != Actions.QUIZ:
+        # TODO verify that it works; improvement/correction over original
+        transition_happened = result[1] is not None and result[1] != response
+        if transition_happened:
             # update based on content
             self.update_from_content(result)
 
     def update_from_content(self, result):
         concepts_inconsistent = self.state_action_values[result[0]] != result[1]
 
+        new_particle_weights, new_particles = self.create_updated_particles(concepts_inconsistent)
+        self.particle_dists = new_particles
+        self.particle_weights = new_particle_weights
+
+        self.check_particles_valid()
+
+    def check_particles_valid(self):
+        # check for particle depletion
+        # Note: sum instead of max compared to other update
+        if np.sum(self.particle_weights) < self.particle_depletion_limit:
+            self.recreate_particles()
+        else:
+            self.assert_particle_limit()
+
+            # re-normalize weights
+            weight_sum = np.sum(self.particle_weights)
+            self.particle_weights = [w / weight_sum for w in self.particle_weights]
+
+    def create_updated_particles(self, concepts_inconsistent):
         new_particles = []
         new_particle_weights = []
+
         for idx, particle in enumerate(self.particle_dists):
             particle_weight = self.particle_weights[idx]
 
             # particle for not being transitioned
             non_transition_particle = np.copy(particle)
             non_transition_weight = particle_weight * self.transition_noise
-            new_particles.append(non_transition_particle)
-            new_particle_weights.append(non_transition_weight)
 
+            # new particle for transitioned state
             particle[concepts_inconsistent] = 0
             particle /= np.sum(particle)
             transitioned_weight = particle_weight * (1 - self.transition_noise)
+
+            # add new particles
+            new_particles.append(non_transition_particle)
+            new_particle_weights.append(non_transition_weight)
             new_particles.append(particle)
             new_particle_weights.append(transitioned_weight)
 
-        self.particle_dists = new_particles
-        self.particle_weights = new_particle_weights
+        return new_particle_weights, new_particles
 
-        # check for particle depletion
-        # TODO verify sum instead of max
-        if np.sum(self.particle_weights) < self.particle_depletion_limit:
-            self.recreate_particles()
-
+    def assert_particle_limit(self):
         if len(self.particle_dists) > self.particle_num:
-
             while len(self.particle_dists) > self.particle_num:
                 min_idx = np.argmin(self.particle_weights)
                 del self.particle_dists[min_idx]
                 del self.particle_weights[min_idx]
-
-        # re-normalize weights
-        weight_sum = np.sum(self.particle_weights)
-        self.particle_weights = [w / weight_sum for w in self.particle_weights]
 
     def update_from_response(self, response, result):
         concepts_w_val = self.state_action_values[result[0]] == response
@@ -110,18 +116,14 @@ class ContinuousModel(BaseBelief):
         for idx, particle in enumerate(self.particle_dists):
             current_weight = self.particle_weights[idx]
 
+            # update weight of particle based on likelihood of producing the response
             p_z = np.sum(particle[concepts_w_val])
-            new_weight = current_weight * ((1 - self.production_noise) * p_z + self.production_noise_per_response)
+            new_weight = current_weight * ((1 - self.production_noise) * p_z + self.obs_noise_prob)
 
             self.particle_weights[idx] = new_weight
 
-        # check for particle depletion
-        if max(self.particle_weights) < self.particle_depletion_limit:
-            self.recreate_particles()
-        else:
-            # normalize
-            weight_sum = np.sum(self.particle_weights)
-            self.particle_weights = [w / weight_sum for w in self.particle_weights]
+        # TODO paper note: using sum instead of max as implied in text
+        self.check_particles_valid()
 
     def recreate_particles(self):
         self.particle_dists = []
@@ -132,16 +134,20 @@ class ContinuousModel(BaseBelief):
         self.particle_weights.append(particle1_weight)
 
         # particle 2: consistent with observed data
+        # TODO optimization: keep track of history particle instead of recalculating it; however, then history particle
+        #  would be part of state
         particle2_dist = np.copy(self.prior)
         particle2_weight = 0.5
 
         for action_type, result, response in self.action_history:
             # update according to observed data
-            # TODO: Q: does that mean only taking examples into account (i.e. observed data?)
+            # TODO: paper note: only actions with evidence
             particle2_dist = self.transition_model(particle2_dist, None, action_type, result, None)
 
         self.particle_dists.append(particle2_dist)
         self.particle_weights.append(particle2_weight)
+
+        self.history_calcs += len(self.action_history)
 
     def observation_model(self, observation, new_state, action_type, action, concept_val):
         concepts_w_val = self.state_action_values[action[0]] == observation
@@ -154,7 +160,12 @@ class ContinuousModel(BaseBelief):
         concepts_inconsistent = self.state_action_values[action[0]] != action[1]
         new_state[concepts_inconsistent] = 0
 
-        new_state /= np.sum(new_state)
+        concept_prob_sum = np.sum(new_state)
+        if concept_prob_sum == 0:
+            # TODO check how it happens: iteration 10
+            raise Exception("encountered degraded particle from history!")
+
+        new_state /= concept_prob_sum
 
         return new_state
 
@@ -163,6 +174,21 @@ class ContinuousModel(BaseBelief):
 
         for idx, particle in enumerate(self.particle_dists):
             prob += self.particle_weights[idx] * particle[index]
+
+        return prob
+
+    def get_observation_prob(self, action, observation):
+        # TODO could be precomputed somewhere
+        concepts_w_obs = self.state_action_values[action[0]] == observation
+
+        prob = 0
+        for idx, particle in enumerate(self.particle_dists):
+            # TODO think about that it makes sense
+            consistent_prob = np.sum(particle[concepts_w_obs])
+            response_prob_from_consistent = (1 - self.production_noise) * consistent_prob + self.obs_noise_prob
+            response_prob_from_inconsistent = self.obs_noise_prob * (1 - consistent_prob)
+
+            prob += self.particle_weights[idx] * (response_prob_from_consistent + response_prob_from_inconsistent)
 
         return prob
 
@@ -178,13 +204,14 @@ class ContinuousModel(BaseBelief):
         # super().reset()
         self.particle_dists = []
         self.particle_weights = []
-        self.init_particles(self.prior)
+        self.init_particles()
 
         self.action_history = []
 
     def __copy__(self):
-        state = self.get_state()
-        new_model = ContinuousModel(self.belief_state.copy(), self.prior, self.concept, self.particle_num, self.verbose)
-        new_model.set_state(state)
+        new_model = ContinuousModel(self.prior, self.concept, particle_num=self.particle_num,
+                                    prod_noise=self.production_noise, trans_noise=self.transition_noise,
+                                    verbose=self.verbose)
+        new_model.set_state((self.particle_dists, self.particle_weights, self.action_history))
 
         return new_model

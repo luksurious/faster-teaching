@@ -156,6 +156,7 @@ class Teacher:
         print("True answer:")
         print(self.concept.get_true_concepts())
 
+    # TODO possibly extract
     def plan_best_actions(self, count, samples):
         start_time = time.time()
 
@@ -180,9 +181,9 @@ class Teacher:
         actions = []
         parent = tree
         while len(parent["children"]) > 0:
-            candidates = [el for el in parent["children"] if np.allclose([el["value"]], [parent["min_val"]])]
+            min_indices = np.flatnonzero(parent["costs"] == parent["costs"].min())
+            candidates = [parent["children"][i] for i in min_indices]
 
-            # next_action_tree = parent["children"][ parent["min_idx"] ]
             next_action_tree = np.random.choice(candidates, 1)[0]
 
             actions.append((next_action_tree["action"], next_action_tree["item"][0], next_action_tree["item"][1]))
@@ -203,16 +204,13 @@ class Teacher:
 
         samples = self.sample_planning_items(sample_lens)
 
-        # check all options until a certain depth
-
-        obs_sample_count = 10
-
         child_sample_len = sample_lens[1:] if sample_lens else None
 
         # save state to reset to later
         model_state = belief.get_state()
 
-        min_costs = float('Inf')
+        parent["costs"] = np.zeros(len(samples)*len(Actions.all()))
+        item_index = 0
 
         for item in samples:
             value = self.concept.evaluate_concept([item])
@@ -236,15 +234,13 @@ class Teacher:
 
                 parent["children"].append(new_node)
 
-                # TODO test with max
-                if val < min_costs:
-                    min_costs = val
+                parent["costs"][item_index] = val
+                item_index += 1
 
-        parent["min_val"] = min_costs
+        return parent["costs"].min()
 
-        return min_costs
-
-    def plan_single_action(self, belief, child_sample_len, depth, model_state, new_node, result, teaching_action):
+    def plan_single_action(self, belief: BaseBelief, child_sample_len: list, depth: int, model_state, new_node, result,
+                           teaching_action):
         if teaching_action == Actions.EXAMPLE:
             # no observations
             expected_obs = None
@@ -256,25 +252,18 @@ class Teacher:
         else:
             val = 0
 
-            # TODO is that correct? sample observations?
-            #  alternatively: go through all possible observations and calc prob of obtaining them
-            # for _ in range(obs_sample_count):
-            #     pass
-            for expected_obs in self.concept.get_observation_space():
-                # believed_concept_id = np.random.choice(self.concept_space_size, p=belief.belief_state)
-                # expected_obs = self.concept.evaluate_concept([item], self.concept_space[believed_concept_id])
+            if teaching_action == Actions.QUIZ:
+                result = (result[0], None)  # No evidence is given to the learner
 
+            for expected_obs in self.concept.get_observation_space():
                 # TODO verify
-                concepts_w_obs = self.concept.concept_val_cache[result[0]] == expected_obs
-                obs_prob = np.sum(belief.belief_state[concepts_w_obs])
+                obs_prob = belief.get_observation_prob(result, expected_obs)
 
                 if obs_prob == 0:
                     continue
 
                 belief.update_belief(teaching_action, result, expected_obs)
 
-                # val += self.gamma / obs_sample_count * self.forward_plan(belief, new_node, depth - 1,
-                #                                                          child_sample_len)
                 val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1, child_sample_len)
 
                 belief.set_state(model_state)

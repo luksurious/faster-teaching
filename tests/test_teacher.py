@@ -3,6 +3,7 @@ import numpy as np
 
 from concepts.letter_addition import LetterAddition
 from learner_models.continuous import ContinuousModel
+from learner_models.memoryless import MemorylessModel
 from teacher import Teacher
 
 
@@ -64,16 +65,17 @@ def test_planning2():
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
 
     prior_distribution = np.array([1 / len(concept.get_concept_space()) for _ in range(len(concept.get_concept_space()))])
-    cont_model = ContinuousModel(prior_distribution, prior_distribution, concept)
+    model = MemorylessModel(prior_distribution, prior_distribution, concept)
+    # model = ContinuousModel(prior_distribution, prior_distribution, concept)
 
-    teacher = Teacher(concept, cont_model, is_random=False)
+    teacher = Teacher(concept, model, is_random=False)
     teacher.setup(0)
 
     # initial belief uniformly distributed
     tree = {
         "children": []
     }
-    teacher.forward_plan(teacher.belief, tree, 3, [4]*3)
+    teacher.forward_plan(teacher.belief, tree, 2, [10]*2)
 
     print("")
     print(concept.get_true_concepts())

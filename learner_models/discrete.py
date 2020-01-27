@@ -1,4 +1,3 @@
-import itertools
 from collections import deque
 
 from concepts.concept_base import ConceptBase
@@ -7,24 +6,18 @@ from actions import Actions
 
 import numpy as np
 
-
+# TODO Paper note
 IGNORE_QUIZ_MEMORY = True
 
 
+# TODO: redo simulations
 class DiscreteMemoryModel(MemorylessModel):
 
-    def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, verbose: bool = True):
-        super().__init__(belief_state, prior, concept, verbose)
+    def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, trans_noise=0.34, prod_noise=0.046,
+                 verbose: bool = True):
+        super().__init__(belief_state, prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
 
-        # TODO incorporate memory into states?
-        # expand regular states with memory combinations
-        # expand prior accordingly
-        # self.generate_memory_states(concept, memory_size)
-
-        # TODO devolves into asking only quizzes at some point?
-
-        self.transition_noise = 0.34  # / self.prior_pos_len  # pretty high
-        self.production_noise = 0.046
+        # TODO check if still happens: devolves into asking only quizzes at some point?
 
         self.memory_size = memory_size
 
@@ -33,30 +26,6 @@ class DiscreteMemoryModel(MemorylessModel):
     def reset(self):
         super().reset()
         self.memory = deque(maxlen=self.memory_size)
-
-    def generate_memory_states(self, concept, memory_size):
-        concept_actions = concept.get_rl_actions()
-        teaching_actions = Actions.all()
-        action_combinations = list(itertools.product(concept_actions, teaching_actions))
-        memory_combinations = list(itertools.product(action_combinations, repeat=memory_size))
-        memory_combinations += list(itertools.product([None], action_combinations + [None]))  # add half-empty memory
-
-        combined_prior = []
-        combined_belief = []
-        combined_states = []
-        for state_i, state in enumerate(self.states):
-            for memory_state in memory_combinations:
-                combined_states.append((state, memory_state))
-                combined_prior.append(self.prior[state_i])
-                combined_belief.append(self.belief_state[state_i])
-
-        self.concept_prior = self.prior
-        self.concept_states = self.states
-
-        # results in 670k combinations... seems unreasonable to work with
-        self.prior = np.array(combined_prior)
-        self.states = np.array(combined_states)
-        self.belief_state = np.array(combined_belief)
 
     def see_action(self, action_type, action):
         if IGNORE_QUIZ_MEMORY and action_type == Actions.QUIZ:
@@ -71,44 +40,27 @@ class DiscreteMemoryModel(MemorylessModel):
         self.belief_state = state[0].copy()
         self.memory = state[1].copy()
 
-    def calc_belief_updatesX(self, action_type, action, observation):
-        new_belief = np.zeros_like(self.belief_state)
+    def __copy__(self):
+        model = DiscreteMemoryModel(self.belief_state.copy(), self.prior, self.concept, memory_size=self.memory_size,
+                                    trans_noise=self.transition_noise, prod_noise=self.production_noise,
+                                    verbose=self.verbose)
+        model.memory = self.memory.copy()
 
-        for idx, new_state in enumerate(self.states):
-            concept_val = self.concept.evaluate_concept(action, new_state[0], idx)
+        return model
 
-            p_z = self.observation_model(observation, new_state, action_type, action, concept_val)
-            if p_z == 0:
-                continue
-
-            p_s = self.transition_model(new_state, idx, action_type, action, concept_val)
-
-            # if DEBUG:
-            #     print("S=%s p_z=%.2f p_s=%.2f" % (new_state, p_z, p_s))
-
-            new_belief[idx] = p_z * p_s
-
-        return new_belief
-
-    def trans_update(self, action, new_belief):
+    def find_consistent_states_for_transition(self, action):
         # state might have changed
         consistent_states = self.state_action_values[action[0]] == action[1]
-        const_indices = np.argwhere(consistent_states)
+        const_indices = np.flatnonzero(consistent_states)
 
         if len(self.memory) > 0:
             for idx in const_indices:
                 # check if consistent with memory
-                cons_w_memory = self.matches_memory(self.states[idx[0]])
-                consistent_states[idx[0]] = cons_w_memory
+                consistent_states[idx] = self.matches_memory(self.hypotheses[idx])
 
-        # TODO assuming uniform prior
-        transition_prob = 1 / len(self.prior[consistent_states]) * (1 - self.transition_noise) \
-                          * np.sum(self.belief_state[consistent_states == False])
+        return consistent_states
 
-        new_belief[consistent_states == False] = self.belief_state[consistent_states == False] * self.transition_noise
-
-        new_belief[consistent_states] = self.belief_state[consistent_states] + transition_prob
-
+    # Model for explicit Bayesian formula
     def transition_model(self, new_state, new_idx, action_type, action, concept_val):
         """
         Probability of going to new state given an action (and current state)
@@ -119,18 +71,10 @@ class DiscreteMemoryModel(MemorylessModel):
             # no need for a loop
             return self.belief_state[new_idx]  # transition prob only to same state is 1, only b(s) left in formula
 
-            # If memory is added to the state
-            # # check that the last memory item is matching the quiz
-            # if new_state[1][-1] == (action, action_type):
-            #     # quizzes cannot be ignored
-            #     # TODO now I would need to loop to check previous states as well...
-            #     return self.belief_state[new_idx]  # transition prob only to same state is 1, only b(s) left in formula
-            # else:
-            #     pass
-
         p_s = 0
 
         # only allow transition if memory matches new state
+        # TODO not sure if correct
         if concept_val == action[1] and self.matches_memory(new_state):
             p_s = self.calculate_ps(action, new_idx)
 

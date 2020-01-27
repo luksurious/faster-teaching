@@ -83,11 +83,6 @@ class SimContinuousLearner(BaseLearner):
             concepts_w_result = self.concept_action_values[quiz[0]] == result
             answers[result] = np.sum(self.concept_belief[concepts_w_result])
 
-        # for idx, concept in enumerate(self.concepts):
-        #     val = self.concept.evaluate_concept(quiz, concept, idx)
-        #
-        #     answers[val] = self.concept_belief[idx]
-
         answer_sample = np.random.choice(list(answers.keys()), p=list(answers.values()))
 
         if np.random.random() <= self.production_noise:
