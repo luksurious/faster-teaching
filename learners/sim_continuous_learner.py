@@ -86,7 +86,8 @@ class SimContinuousLearner(BaseLearner):
         answer_sample = np.random.choice(list(answers.keys()), p=list(answers.values()))
 
         if np.random.random() <= self.production_noise:
-            answer_sample -= 1  # TODO how do you define "inconsistent" for a probabilistic answer?
+            # produce random answer
+            answer_sample -= np.random.choice(list(answers.keys()))
 
         self.print("I think it is %d" % answer_sample)
 

@@ -14,7 +14,6 @@ class LetterAddition(ConceptBase):
         start = ord('A')
 
         if number_range is None:
-            # TODO start at 0 or 1?
             number_range = list(range(0, problem_len))
 
         self.numbers = number_range

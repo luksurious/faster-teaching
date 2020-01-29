@@ -8,6 +8,7 @@ from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 
+from actions import Actions
 from concepts.letter_addition import LetterAddition
 from learner_models.continuous import ContinuousModel
 from learner_models.discrete import DiscreteMemoryModel
@@ -29,6 +30,7 @@ def setup_arguments():
                         choices=["memoryless", "discrete", "continuous"], nargs='?',
                         help="Which learner model to use during planning for updating the belief")
     parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
+    parser.add_argument('--actions_qe_only', action="store_true", help='Only use quizzes and examples')
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
     parser.add_argument('--plan_discrete_memory', type=int, default=2,
                         help="Size of the memory for the planning model")
@@ -40,6 +42,8 @@ def setup_arguments():
     parser.add_argument('--plan_pre_samples', type=int, default=6,
                         help="Number of samples per planning step for precomputed actions")
     parser.add_argument('--plan_load_actions', type=str, default=None, help="Path to file with precomputed actions")
+    parser.add_argument('--particle_limit', type=int, default=16, help='Maximum number of particles for the '
+                                                                       'continuous model')
 
     # Execution arguments
     parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
@@ -103,8 +107,7 @@ def create_belief_model(args, prior_distribution, concept):
         belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
     elif args.planning_model == 'continuous':
-        particle_limit = 16
-        belief = ContinuousModel(prior_distribution, concept, particle_limit, verbose=args.verbose)
+        belief = ContinuousModel(prior_distribution, concept, args.particle_limit, verbose=args.verbose)
     else:
         raise Exception("Unknown simulation model")
 
@@ -117,7 +120,12 @@ def create_belief_model(args, prior_distribution, concept):
 
 
 def create_teacher(args, concept, belief):
-    teacher = Teacher(concept, belief, args.random, args.teaching_phase_actions, args.max_teaching_phases)
+    actions = Actions.all()
+    if args.actions_qe_only:
+        actions = Actions.qe_only()
+
+    teacher = Teacher(concept, belief, args.random, args.teaching_phase_actions, args.max_teaching_phases,
+                      actions=actions)
     teacher.verbose = args.verbose
     teacher.plan_horizon = args.plan_online_horizon
     teacher.plan_samples = args.plan_online_samples

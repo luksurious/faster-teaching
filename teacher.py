@@ -5,19 +5,13 @@ import random
 
 from concepts.concept_base import ConceptBase
 
-from actions import Actions
+from actions import Actions, ACTION_COSTS
 from learner_models.base_belief import BaseBelief
 
 
 class Teacher:
-    ACTION_COSTS = {
-        Actions.EXAMPLE: 7.0,
-        Actions.QUIZ: 6.6,
-        Actions.QUESTION: 12.0
-    }
-
     def __init__(self, concept: ConceptBase, belief: BaseBelief, is_random: bool, learning_phase_len: int = 3,
-                 max_phases: int = 40):
+                 max_phases: int = 40, actions: list = None):
         self.learning_phase_len = learning_phase_len
         self.max_phases = max_phases
 
@@ -27,6 +21,10 @@ class Teacher:
             self.strategy = self.choose_random_action
         else:
             self.strategy = self.choose_best
+
+        if actions is None:
+            actions = Actions.all()
+        self.actions = actions
 
         self.true_concept_pos = -1
         self.best_action_stack = []
@@ -42,14 +40,7 @@ class Teacher:
         self.concept = concept
         self.belief = belief
 
-        self.actions = {Actions.EXAMPLE: self.concept.generate_example,
-                        Actions.QUIZ: self.concept.generate_quiz,
-                        Actions.QUESTION: self.concept.generate_question_with_feedback}
-
         self.concept_space = self.concept.get_concept_space()
-
-        # TODO stop planning after max time
-        self.max_time = 3
 
         self.action_count = 0
 
@@ -124,11 +115,11 @@ class Teacher:
 
     def choose_random_action(self, shown_concepts):
         # random strategy
-        current_type = random.sample(self.actions.keys(), 1)[0]
+        current_type = random.sample(self.actions, 1)[0]
 
-        equation, result = self.actions[current_type]()
+        equation, result = self.concept.teaching_action(current_type)
         while equation in shown_concepts:
-            equation, result = self.actions[current_type]()
+            equation, result = self.concept.teaching_action(current_type)
 
         # TODO check for different types
         shown_concepts.append(equation)
@@ -212,7 +203,7 @@ class Teacher:
         # save state to reset to later
         model_state = belief.get_state()
 
-        parent["costs"] = np.zeros(len(samples)*len(Actions.all()))
+        parent["costs"] = np.zeros(len(samples)*len(self.actions))
         item_index = 0
 
         min_cost = float("Inf")
@@ -221,9 +212,9 @@ class Teacher:
             value = self.concept.evaluate_concept([item])
             result = (item, value)
 
-            for teaching_action in Actions.all():
+            for teaching_action in self.actions:
 
-                val = self.ACTION_COSTS[teaching_action]
+                val = ACTION_COSTS[teaching_action]
 
                 new_node = {
                     "children": [],
@@ -297,7 +288,7 @@ class Teacher:
     def estimate_belief(self, belief: BaseBelief):
         # TODO move to concept
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
-        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.ACTION_COSTS.values())
+        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(ACTION_COSTS.values())
 
     def enroll_learner(self, learner):
         self.learner = learner

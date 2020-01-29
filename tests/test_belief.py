@@ -103,7 +103,7 @@ def test_belief_three_question_correct():
     check_update_belief_with(belief,
                              equation=(0, 1),  # A + B
                              cur_belief=[1 / 6 for _ in range(6)],
-                             action=Actions.QUESTION,
+                             action=Actions.FEEDBACK,
                              true=2,
                              response=2,
                              expected=[0., 0.5, 0., 0., 0.5, 0.])
@@ -122,7 +122,7 @@ def test_belief_three_question_incorrect():
     check_update_belief_with(belief,
                              equation=(0, 1),  # A + B
                              cur_belief=[1 / 6 for _ in range(6)],
-                             action=Actions.QUESTION,
+                             action=Actions.FEEDBACK,
                              true=2,
                              response=1,
                              expected=[0., 0.5, 0., 0., 0.5, 0.])

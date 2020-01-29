@@ -41,7 +41,7 @@ class BaseBelief(ABC):
         self.belief_state = self.belief_state_orig.copy()
 
     def update_belief(self, action_type, result, response):
-        if action_type == Actions.QUESTION:
+        if action_type == Actions.FEEDBACK:
             # first narrow down belief of previous state, ignoring the correct answer
             self.belief_state = self.calc_new_belief(action_type, response, (result[0], None))
 
@@ -58,7 +58,7 @@ class BaseBelief(ABC):
 
     def assert_belief_is_valid(self, action_type, new_belief, response, result):
         # TODO does it make sense to reset the belief like this?
-        if np.sum(new_belief) == 0:
+        if np.max(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
             if DEBUG:
                 print("Inconsistent quiz response")
@@ -66,7 +66,7 @@ class BaseBelief(ABC):
             self.belief_state[:] = 1
             new_belief = self.belief_update_formula(action_type, result, response)
 
-            if np.sum(new_belief) == 0:
+            if np.max(new_belief) == 0:
                 # still 0 means, invalid response; reset to prior probs
                 new_belief = self.prior.copy()
 

@@ -64,7 +64,7 @@ class SimMemorylessLearner(BaseLearner):
 
         response = self.self_evaluate(quiz[0])
         if np.random.random() < self.production_noise:
-            response -= 1  # slips, TODO whats the proper way?
+            response -= np.random.choice(self.concept.get_observation_space())  # random answer
         self.print("I think it is %d" % response)
 
         return response
