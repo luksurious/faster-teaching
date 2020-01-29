@@ -21,6 +21,7 @@ class DiscreteMemoryModel(MemorylessModel):
 
         self.memory_size = memory_size
 
+        # TODO paper note: state space not multiplied by memory possibilities
         self.memory = deque(maxlen=memory_size)
 
     def reset(self):

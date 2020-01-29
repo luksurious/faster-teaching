@@ -184,6 +184,7 @@ class ContinuousModel(BaseBelief):
         prob = 0
         for idx, particle in enumerate(self.particle_dists):
             # TODO think about that it makes sense
+            # TODO paper details
             consistent_prob = np.sum(particle[concepts_w_obs])
             response_prob_from_consistent = (1 - self.production_noise) * consistent_prob + self.obs_noise_prob
             response_prob_from_inconsistent = self.obs_noise_prob * (1 - consistent_prob)

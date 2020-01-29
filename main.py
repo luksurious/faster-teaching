@@ -34,7 +34,7 @@ def setup_arguments():
                         help="Size of the memory for the planning model")
     parser.add_argument('--plan_online_horizon', type=int, default=2,
                         help="Horizon of the planning algorithm during online planning")
-    parser.add_argument('--plan_online_samples', type=int, nargs='*', default=[6, 6],
+    parser.add_argument('--plan_online_samples', type=int, nargs='*',
                         help="Sample lens of the planning algorithm during online planning for each horizon step")
     parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
     parser.add_argument('--plan_pre_samples', type=int, default=6,
@@ -232,13 +232,22 @@ def describe_arguments(args):
         if args.planning_model == 'memoryless':
             print("Policy: Planning actions using a memoryless belief model")
             model = "Memoryless"
+
+            if not args.plan_online_samples:
+                args.plan_online_samples = [7, 6]
         elif args.planning_model == 'discrete':
-            print(
-                "Policy: Planning actions using a belief model with discrete memory (s=%d)" % args.plan_discrete_memory)
+            print("Policy: Planning actions using a belief model with discrete memory (s=%d)"
+                  % args.plan_discrete_memory)
             model = "Discrete"
+
+            if not args.plan_online_samples:
+                args.plan_online_samples = [8, 8]
         elif args.planning_model == 'continuous':
             print("Policy: Planning actions using a belief model with continuous memory")
             model = "Continuous"
+
+            if not args.plan_online_samples:
+                args.plan_online_samples = [4, 3]
         if args.plan_no_noise:
             print("-- ignoring noise in belief updating")
             model += " (w/o noise)"
@@ -289,14 +298,14 @@ def exec_setup(args, number_range, load=False, load_file=None):
     np.random.seed(args.sim_seed)
     concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
 
+    if load_file is None:
+        load_file = 'data/actions.pickle'
+
     if load:
-        with open('data/actions.pickle', 'rb') as f:
+        with open(load_file, 'rb') as f:
             teacher.best_action_stack = pickle.load(f)
     else:
         perform_preplanning(args, teacher)
-
-        if load_file is None:
-            load_file = 'data/actions.pickle'
 
         with open(load_file, 'wb') as f:
             pickle.dump(teacher.best_action_stack, f)
@@ -318,7 +327,8 @@ def main():
 
     # create objects, and pre-compute actions for all cases
     # (objects only used in single and serial execution mode)
-    concept, prior_distribution, teacher, belief = exec_setup(args, number_range, load=args.plan_load_actions is not None,
+    concept, prior_distribution, teacher, belief = exec_setup(args, number_range,
+                                                              load=args.plan_load_actions is not None,
                                                               load_file=args.plan_load_actions)
 
     if args.single_run:
@@ -327,7 +337,7 @@ def main():
         success = teacher.teach()
         handle_single_run_end(global_time_start, learner, success, teacher, model_info)
 
-        print("History particle checks: %d" % belief.history_calcs)
+        # print("History particle checks: %d" % belief.history_calcs)
     else:
         error_history = []
         action_history = []

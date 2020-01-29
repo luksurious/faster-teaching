@@ -157,7 +157,10 @@ class Teacher:
         print(self.concept.get_true_concepts())
 
     # TODO possibly extract
-    def plan_best_actions(self, count, samples):
+    def plan_best_actions(self, count: int, samples: list):
+        if len(samples) < count:
+            samples = [samples[0]]*count
+
         start_time = time.time()
 
         # TODO use faster array/list method
@@ -212,6 +215,8 @@ class Teacher:
         parent["costs"] = np.zeros(len(samples)*len(Actions.all()))
         item_index = 0
 
+        min_cost = float("Inf")
+
         for item in samples:
             value = self.concept.evaluate_concept([item])
             result = (item, value)
@@ -227,10 +232,14 @@ class Teacher:
                 }
 
                 val += self.plan_single_action(belief, child_sample_len, depth, model_state, new_node, result,
-                                               teaching_action)
+                                               teaching_action,
+                                               min_cost, val)
 
                 # propagate back up
                 new_node["value"] = val
+
+                if val < min_cost:
+                    min_cost = val
 
                 parent["children"].append(new_node)
 
@@ -240,7 +249,7 @@ class Teacher:
         return parent["costs"].min()
 
     def plan_single_action(self, belief: BaseBelief, child_sample_len: list, depth: int, model_state, new_node, result,
-                           teaching_action):
+                           teaching_action, best_val, action_cost):
         if teaching_action == Actions.EXAMPLE:
             # no observations
             expected_obs = None
@@ -256,7 +265,7 @@ class Teacher:
                 result = (result[0], None)  # No evidence is given to the learner
 
             for expected_obs in self.concept.get_observation_space():
-                # TODO verify
+                # TODO verify; could be precomputed
                 obs_prob = belief.get_observation_prob(result, expected_obs)
 
                 if obs_prob == 0:
@@ -267,6 +276,10 @@ class Teacher:
                 val += self.gamma * obs_prob * self.forward_plan(belief, new_node, depth - 1, child_sample_len)
 
                 belief.set_state(model_state)
+
+                if (val + action_cost) > best_val:
+                    # print("Canceled calculating more obs - cannot get better")
+                    break
 
         return val
 
