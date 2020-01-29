@@ -62,14 +62,12 @@ class ForwardSearchPlanner(BasePlanner):
     def reset(self):
         self.action_count = 0
 
-    # TODO possibly extract
     def plan_best_actions(self, count: int, samples: list):
         if len(samples) < count:
             samples = [samples[0]] * count
 
         start_time = time.time()
 
-        # TODO use faster array/list method
         tree = {
             "children": []
         }

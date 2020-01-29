@@ -18,6 +18,7 @@ from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
 from planners.forward_search import ForwardSearchPlanner
+from planners.max_information_gain import MaxInformationGainPlanner
 from planners.random import RandomPlanner
 from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
     plot_single_actions
@@ -27,12 +28,16 @@ from teacher import Teacher
 def setup_arguments():
     parser = argparse.ArgumentParser(description='Run the "Faster Teaching via POMDP Planning" implementation using '
                                                  'simulated learners')
-    # Planning arguments
+    # Planning mode arguments
     parser.add_argument('planning_model', type=str, default="memoryless",
                         choices=["memoryless", "discrete", "continuous"], nargs='?',
                         help="Which learner model to use during planning for updating the belief")
     parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
     parser.add_argument('--actions_qe_only', action="store_true", help='Only use quizzes and examples')
+    parser.add_argument('--plan_max_gain', action="store_true", help='Plan using max information gain (only possible '
+                                                                      'with continuous model)')
+
+    # Model arguments
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
     parser.add_argument('--plan_discrete_memory', type=int, default=2,
                         help="Size of the memory for the planning model")
@@ -128,6 +133,8 @@ def create_teacher(args, concept, belief):
 
     if args.random:
         planner = RandomPlanner(concept, actions)
+    elif args.plan_max_gain:
+        planner = MaxInformationGainPlanner(concept, [Actions.EXAMPLE], belief, args.verbose)
     else:
         planner = ForwardSearchPlanner(concept, actions, belief, verbose=args.verbose,
                                        plan_horizon=args.plan_online_horizon, plan_samples=args.plan_online_samples)
@@ -244,6 +251,9 @@ def describe_arguments(args):
         args.plan_pre_horizon = 0
         args.plan_online_horizon = 0
     else:
+        if args.plan_max_gain:
+            print("Policy: Planning using maximum information gain")
+
         if args.planning_model == 'memoryless':
             print("Policy: Planning actions using a memoryless belief model")
             model = "Memoryless"
