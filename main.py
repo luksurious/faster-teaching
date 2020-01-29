@@ -17,6 +17,8 @@ from learners.human_learner import HumanLearner
 from learners.sim_continuous_learner import SimContinuousLearner
 from learners.sim_discrete_learner import SimDiscreteLearner
 from learners.sim_memoryless_learner import SimMemorylessLearner
+from planners.forward_search import ForwardSearchPlanner
+from planners.random import RandomPlanner
 from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
     plot_single_actions
 from teacher import Teacher
@@ -124,11 +126,14 @@ def create_teacher(args, concept, belief):
     if args.actions_qe_only:
         actions = Actions.qe_only()
 
-    teacher = Teacher(concept, belief, args.random, args.teaching_phase_actions, args.max_teaching_phases,
-                      actions=actions)
-    teacher.verbose = args.verbose
-    teacher.plan_horizon = args.plan_online_horizon
-    teacher.plan_samples = args.plan_online_samples
+    if args.random:
+        planner = RandomPlanner(concept, actions)
+    else:
+        planner = ForwardSearchPlanner(concept, actions, belief, verbose=args.verbose,
+                                       plan_horizon=args.plan_online_horizon, plan_samples=args.plan_online_samples)
+
+    teacher = Teacher(concept, belief, planner, args.teaching_phase_actions, args.max_teaching_phases,
+                      verbose=args.verbose)
 
     return teacher
 
@@ -157,10 +162,12 @@ def setup_learner(args, concept, number_range, prior_distribution, teacher):
 
 def perform_preplanning(args, teacher):
     setup_start = time.time()
-    teacher.setup(args.plan_pre_horizon, args.plan_pre_samples)
+    result = teacher.planner.perform_preplanning(args.plan_pre_horizon, args.plan_pre_samples)
 
     if args.plan_pre_horizon > 0:
         print("Precomputing actions took %.2f s\n" % (time.time() - setup_start))
+
+    return result
 
 
 def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
@@ -306,17 +313,19 @@ def exec_setup(args, number_range, load=False, load_file=None):
     np.random.seed(args.sim_seed)
     concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
 
-    if load_file is None:
-        load_file = 'data/actions.pickle'
+    if args.plan_pre_horizon > 0:
+        if load_file is None:
+            load_file = 'data/actions.pickle'
 
-    if load:
-        with open(load_file, 'rb') as f:
-            teacher.best_action_stack = pickle.load(f)
-    else:
-        perform_preplanning(args, teacher)
+        if load:
+            with open(load_file, 'rb') as f:
+                teacher.planner.load_preplanning(pickle.load(f))
+        else:
+            result = perform_preplanning(args, teacher)
 
-        with open(load_file, 'wb') as f:
-            pickle.dump(teacher.best_action_stack, f)
+            if result is not None:
+                with open(load_file, 'wb') as f:
+                    pickle.dump(result, f)
 
     return concept, prior_distribution, teacher, belief
 

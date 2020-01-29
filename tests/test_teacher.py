@@ -75,7 +75,7 @@ def test_planning2():
     tree = {
         "children": []
     }
-    teacher.forward_plan(teacher.belief, tree, 2, [10]*2)
+    teacher.forward_plan(teacher.belief, tree, 3, [5]*10)
 
     print("")
     print(concept.get_true_concepts())
