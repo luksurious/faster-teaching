@@ -1,6 +1,8 @@
 import random
 import time
 
+from copy import deepcopy
+
 import numpy as np
 
 from actions import Actions, ACTION_COSTS
@@ -18,7 +20,10 @@ class ForwardSearchPlanner(BasePlanner):
 
         self.gamma = 0.99
 
-        self.best_action_stack = []
+        self.best_action_stack = {
+            'action': None,
+            'responses': {}
+        }
 
         if plan_samples is None:
             plan_samples = [5, 5]
@@ -39,22 +44,53 @@ class ForwardSearchPlanner(BasePlanner):
                 self.true_concept_pos = i
                 break
 
-    def perform_preplanning(self, preplan_len: int = 2, preplan_samples: int = 10):
-        self.best_action_stack = self.plan_best_actions(preplan_len, [preplan_samples] * preplan_len)
+    def perform_preplanning(self, preplan_len: int = 9, preplan_samples: int = 10):
+        self.preplan_walker(self.best_action_stack, preplan_len, self.belief.copy(),
+                            [preplan_samples] * self.plan_horizon)
 
         return self.best_action_stack
 
-    def load_preplanning(self, data):
-        self.best_action_stack = data
+    def preplan_walker(self, parent, level, belief, samples):
+        # type, item, value
+        next_action = self.plan_best_action(self.plan_horizon, samples, belief)
 
-    def choose_action(self):
+        parent['action'] = next_action
+        if level == 1:
+            return
+
+        result = (next_action[1], next_action[2])
+        if next_action[0] == Actions.QUIZ:
+            result = (next_action[1], None)
+
+        if next_action[0] == Actions.EXAMPLE:
+            responses = [None]
+        else:
+            responses = self.concept.get_observation_space()
+
+        for response in responses:
+            parent['responses'][response] = {
+                'action': None,
+                'responses': {}
+            }
+            new_belief = belief.copy()
+            new_belief.update_belief(next_action[0], result, response)
+
+            self.preplan_walker(parent['responses'][response], level - 1, new_belief, samples)
+
+    def load_preplanning(self, data):
+        self.best_action_stack = deepcopy(data)
+
+    def choose_action(self, prev_response=None):
         self.action_count += 1
 
-        if self.action_count <= len(self.best_action_stack):
+        if self.action_count > 1 and self.best_action_stack.get('responses'):
+            self.best_action_stack = self.best_action_stack['responses'].get(prev_response)
+
+        if self.best_action_stack and self.best_action_stack.get('action'):
             # use precomputed actions
-            return self.best_action_stack[self.action_count-1]
+            return self.best_action_stack['action']
         else:
-            return self.plan_best_actions(self.plan_horizon, self.plan_samples).pop(0)
+            return self.plan_best_action(self.plan_horizon, self.plan_samples)
 
     def start_teaching_phase(self):
         pass
@@ -62,16 +98,19 @@ class ForwardSearchPlanner(BasePlanner):
     def reset(self):
         self.action_count = 0
 
-    def plan_best_actions(self, count: int, samples: list):
-        if len(samples) < count:
-            samples = [samples[0]] * count
+    def plan_best_action(self, horizon: int, samples: list, belief: BaseBelief = None):
+        if len(samples) < horizon:
+            samples = [samples[0]] * horizon
+
+        if belief is None:
+            belief = self.belief
 
         start_time = time.time()
 
         tree = {
             "children": []
         }
-        self.forward_plan(self.belief.copy(), tree, count, samples)
+        self.forward_plan(belief.copy(), tree, horizon, samples)
 
         if self.verbose:
             print("// planning took %.2f" % (time.time() - start_time))
@@ -79,15 +118,15 @@ class ForwardSearchPlanner(BasePlanner):
         # self.print_plan_tree(tree)
 
         # find optimal path
-        actions = self.find_optimal_action_path(tree)
+        action = self.find_optimal_action_path(tree)
 
-        return actions
+        return action
 
     @staticmethod
-    def find_optimal_action_path(tree):
+    def find_optimal_action_path(tree, depth=1):
         actions = []
         parent = tree
-        while len(parent["children"]) > 0:
+        while len(parent["children"]) > 0 and depth > 0:
             min_indices = np.flatnonzero(parent["costs"] == parent["costs"].min())
             candidates = [parent["children"][i] for i in min_indices]
 
@@ -95,13 +134,17 @@ class ForwardSearchPlanner(BasePlanner):
 
             actions.append((next_action_tree["action"], next_action_tree["item"][0], next_action_tree["item"][1]))
             parent = next_action_tree
+            depth -= 1
+
+        if len(actions) == 1:
+            return actions[0]
 
         return actions
 
     def print_plan_tree(self, parent, indent=''):
         for item in parent["children"]:
             print("%s Action: %s %s : %.2f" % (
-            indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
+                indent, item["action"], self.concept.gen_readable_format(item["item"], True), item["value"]))
             self.print_plan_tree(item, indent + '..')
 
     def forward_plan(self, belief: BaseBelief, parent, depth, sample_lens: list = None):

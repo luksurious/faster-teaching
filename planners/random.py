@@ -10,7 +10,7 @@ class RandomPlanner(BasePlanner):
 
         self.shown_concepts = []
 
-    def choose_action(self):
+    def choose_action(self, prev_response=None):
         # random strategy
         current_type = random.sample(self.actions, 1)[0]
 

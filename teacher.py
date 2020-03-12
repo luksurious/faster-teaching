@@ -30,8 +30,9 @@ class Teacher:
         self.belief.reset()
 
     def teach(self):
+        prev_response = None
         for self.action_count in range(self.max_phases*3):
-            action_type, equation, result = self.planner.choose_action()
+            action_type, equation, result = self.planner.choose_action(prev_response)
 
             action_data = (equation, result)
             action_data_hidden = (equation, None)
@@ -65,6 +66,8 @@ class Teacher:
             if (self.action_count + 1) % self.learning_phase_len == 0:
                 if self.assess():
                     return True
+
+            prev_response = response
 
         return False
 

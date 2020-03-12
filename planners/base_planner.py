@@ -9,7 +9,7 @@ class BasePlanner(ABC):
         self.concept = concept
 
     @abstractmethod
-    def choose_action(self):
+    def choose_action(self, prev_response=None):
         pass
 
     @abstractmethod

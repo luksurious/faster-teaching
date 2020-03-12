@@ -20,7 +20,7 @@ class MaxInformationGainPlanner(BasePlanner):
 
         self.verbose = verbose
 
-    def perform_preplanning(self, preplan_len: int = 2, preplan_samples: int = 10):
+    def perform_preplanning(self):
         pass
 
     def load_preplanning(self, data):
@@ -32,7 +32,7 @@ class MaxInformationGainPlanner(BasePlanner):
     def reset(self):
         pass
 
-    def choose_action(self):
+    def choose_action(self, prev_response=None):
         start_time = time.time()
 
         action_data = self.find_max_gain_item(self.belief.copy())
