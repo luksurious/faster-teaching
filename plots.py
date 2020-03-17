@@ -1,3 +1,4 @@
+import json
 import time
 
 import matplotlib.pyplot as plt
@@ -5,6 +6,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import termtables as tt
+
+from json_encoder import CustomEncoder
 
 OUTPUT = "data/"
 
@@ -21,7 +24,6 @@ def plot_single_actions(action_history, model_subtitle=None):
     plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
     plt.yticks([])
     plt.savefig(OUTPUT + "single-actions_%d.png" % time.time())
-    plt.show()
 
 
 def plot_single_errors(error_history, model_subtitle=None):
@@ -31,10 +33,9 @@ def plot_single_errors(error_history, model_subtitle=None):
     add_titles(title, model_subtitle)
 
     plt.savefig(OUTPUT + "single-errors_%d.png" % time.time())
-    plt.show()
 
 
-def plot_multi_errors(error_history, model_subtitle=None):
+def plot_multi_errors(error_history, model_subtitle=None, mode='multi', finish_time=''):
     max_len = max([len(x) for x in error_history])
     plot_data = np.zeros((len(error_history), max_len))
 
@@ -52,21 +53,19 @@ def plot_multi_errors(error_history, model_subtitle=None):
 
     plt.ylim(0)
     plt.xlim(0)
-    plt.savefig(OUTPUT + "multi-errors_%d.png" % time.time())
-    plt.show()
+    plt.savefig(OUTPUT + mode + "_errors_%d.png" % finish_time)
 
 
-def plot_multi_time(time_history, model_subtitle=None):
+def plot_multi_time(time_history, model_subtitle=None, mode='multi', finish_time=''):
     sns.violinplot(y=time_history)
 
     title = "Average time to complete"
     add_titles(title, model_subtitle)
 
-    plt.savefig(OUTPUT + "multi-time_%d.png" % time.time())
-    plt.show()
+    plt.savefig(OUTPUT + mode + "_time_%d.png" % finish_time)
 
 
-def plot_multi_actions(action_history, model_subtitle=None):
+def plot_multi_actions(action_history, model_subtitle=None, mode='multi', finish_time=''):
     max_actions = max([len(x) for x in action_history])
     action_types_1 = np.zeros(max_actions)
     action_types_2 = np.zeros(max_actions)
@@ -88,25 +87,39 @@ def plot_multi_actions(action_history, model_subtitle=None):
     title = "Planned actions per time step"
     add_titles(title, model_subtitle)
 
-    plt.savefig(OUTPUT + "multi-actions_%d.png" % time.time())
-    plt.show()
+    plt.savefig(OUTPUT + mode + "_actions_%d.png" % finish_time)
 
 
 def print_statistics_table(error_history, time_history):
-    learned_history = [np.argmin(errors) for errors in error_history]
+    learned_history = [np.argmin(errors) if min(errors) == 0 else 40 for errors in error_history]
 
     np.set_printoptions(precision=2)
     print("\nSome statistics")
-    print(tt.to_string([
+    stats_arr = [
         ["Time"] + ["%.2f" % item
                     for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
 
         ["Phases"] + ["%.2f" % item
                       for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
-    ], header=["", "Mean", "Median", "SD"], alignment="lrrr"))
+    ]
+    print(tt.to_string(stats_arr, header=["", "Mean", "Median", "SD"], alignment="lrrr"))
+
+    return stats_arr
 
 
 def add_titles(title, model_subtitle):
     plt.suptitle(title, fontsize=12)
     if model_subtitle:
         plt.title(model_subtitle, fontsize=9)
+
+
+def save_raw_data(action_history, error_history, time_history, failures, stats, response_history, mode, finish_time):
+    with open(OUTPUT + mode + "_data_%d.json" % finish_time, 'w') as file:
+        file.write(json.dumps({
+            "stats": stats,
+            "actions": action_history,
+            "responses": response_history,
+            "errors": error_history,
+            "time": time_history,
+            "failures": failures
+        }, cls=CustomEncoder))

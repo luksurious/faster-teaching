@@ -27,9 +27,9 @@ class RandomPlanner(BasePlanner):
         self.shown_concepts = []
 
     def reset(self):
-        pass
+        self.shown_concepts = []
 
-    def perform_preplanning(self):
+    def perform_preplanning(self, a=None, b=None):
         pass
 
     def load_preplanning(self, data):

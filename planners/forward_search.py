@@ -83,12 +83,13 @@ class ForwardSearchPlanner(BasePlanner):
     def choose_action(self, prev_response=None):
         self.action_count += 1
 
-        if self.action_count > 1 and self.best_action_stack.get('responses'):
-            self.best_action_stack = self.best_action_stack['responses'].get(prev_response)
-
         if self.best_action_stack and self.best_action_stack.get('action'):
             # use precomputed actions
-            return self.best_action_stack['action']
+            action = self.best_action_stack['action']
+
+            self.best_action_stack = self.best_action_stack['responses'].get(prev_response)
+
+            return action
         else:
             return self.plan_best_action(self.plan_horizon, self.plan_samples)
 

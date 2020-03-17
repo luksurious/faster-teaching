@@ -21,7 +21,7 @@ from planners.forward_search import ForwardSearchPlanner
 from planners.max_information_gain import MaxInformationGainPlanner
 from planners.random import RandomPlanner
 from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
-    plot_single_actions
+    plot_single_actions, save_raw_data
 from teacher import Teacher
 
 
@@ -35,7 +35,7 @@ def setup_arguments():
     parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
     parser.add_argument('--actions_qe_only', action="store_true", help='Only use quizzes and examples')
     parser.add_argument('--plan_max_gain', action="store_true", help='Plan using max information gain (only possible '
-                                                                      'with continuous model)')
+                                                                     'with continuous model)')
 
     # Model arguments
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
@@ -45,8 +45,8 @@ def setup_arguments():
                         help="Horizon of the planning algorithm during online planning")
     parser.add_argument('--plan_online_samples', type=int, nargs='*',
                         help="Sample lens of the planning algorithm during online planning for each horizon step")
-    parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Horizon of the precomputed planned actions")
-    parser.add_argument('--plan_pre_samples', type=int, default=6,
+    parser.add_argument('--plan_pre_horizon', type=int, default=9, help="Number of precomputed planned actions")
+    parser.add_argument('--plan_pre_samples', type=int, default=10,
                         help="Number of samples per planning step for precomputed actions")
     parser.add_argument('--plan_load_actions', type=str, default=None, help="Path to file with precomputed actions")
     parser.add_argument('--particle_limit', type=int, default=16, help='Maximum number of particles for the '
@@ -54,6 +54,7 @@ def setup_arguments():
 
     # Execution arguments
     parser.add_argument('-v', '--verbose', action="store_true", help="Print everything")
+    parser.add_argument('--no_show', action="store_true", help="Don't show plots, only save them")
     parser.add_argument('-s', '--single_run', action="store_true", help="Only run one simulation")
     parser.add_argument('-c', '--sim_count', type=int, default=50, help="Number of simulations to run")
     parser.add_argument('--sim_seed', type=int, default=123, help="Base seed for the different simulation runs")
@@ -177,7 +178,7 @@ def perform_preplanning(args, teacher):
     return result
 
 
-def handle_single_run_end(global_time_start, learner, success, teacher, model_info):
+def handle_single_run_end(args, global_time_start, learner, success, teacher, model_info):
     if not success:
         teacher.reveal_answer()
         print("# Concept not learned in expected time")
@@ -189,25 +190,54 @@ def handle_single_run_end(global_time_start, learner, success, teacher, model_in
     # print(teacher.action_history)
 
     plot_single_errors(teacher.assessment_history, model_info)
+    if not args.no_show:
+        plt.show()
     plot_single_actions(teacher.action_history, model_info)
+    if not args.no_show:
+        plt.show()
 
 
-def handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info):
-    plot_multi_errors(error_history, model_info)
+def handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures,
+                         response_history, model_info):
+    model = args.planning_model
+    if args.random:
+        model = 'random'
+    if args.actions_qe_only:
+        model += '-qe'
+    if args.plan_max_gain:
+        model += '-mig'
+
+    sim_model = args.sim_model
+    if args.sim_model_mode == 'pair':
+        sim_model += '-pair'
+
+    mode = "multi_model:{}_sim:{}".format(model, sim_model)
+
+    finish_time = time.time()
+
+    plot_multi_errors(error_history, model_info, mode, finish_time)
+    if not args.no_show:
+        plt.show()
     plt.clf()
 
-    plot_multi_time(time_history, model_info)
+    plot_multi_time(time_history, model_info, mode, finish_time)
+    if not args.no_show:
+        plt.show()
     plt.clf()
 
-    plot_multi_actions(action_history, model_info)
+    plot_multi_actions(action_history, model_info, mode, finish_time)
+    if not args.no_show:
+        plt.show()
     plt.clf()
 
     print("\nLearning failures: %d/%d = %.2f%%" % (len(failures), args.sim_count, len(failures) / args.sim_count * 100))
     if len(failures) > 0:
         print("".join(["x" if i in failures else " " for i in range(args.sim_count)]) + "\n")
 
-    print_statistics_table(error_history, time_history)
+    stats = print_statistics_table(error_history, time_history)
     print("Global time elapsed: %.2f" % (time.time() - global_time_start))
+
+    save_raw_data(action_history, error_history, time_history, failures, stats, response_history, mode, finish_time)
 
 
 def describe_arguments(args):
@@ -253,6 +283,8 @@ def describe_arguments(args):
     else:
         if args.plan_max_gain:
             print("Policy: Planning using maximum information gain")
+            args.plan_pre_horizon = 0
+            args.plan_online_horizon = 0
 
         if args.planning_model == 'memoryless':
             print("Policy: Planning actions using a memoryless belief model")
@@ -315,7 +347,7 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
         print("Got exception %s" % str(e))
         print("- In iteration %d" % i)
 
-    return i, success, teacher.action_history, teacher.assessment_history, learner.total_time
+    return i, success, teacher.action_history, teacher.assessment_history, learner.total_time, teacher.response_history
 
 
 def exec_setup(args, number_range, load=False, load_file=None):
@@ -362,13 +394,14 @@ def main():
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
 
         success = teacher.teach()
-        handle_single_run_end(global_time_start, learner, success, teacher, model_info)
+        handle_single_run_end(args, global_time_start, learner, success, teacher, model_info)
 
         # print("History particle checks: %d" % belief.history_calcs)
     else:
         error_history = []
         action_history = []
         time_history = []
+        response_history = []
         failures = []
 
         run_parallel = args.pool != 1
@@ -390,22 +423,24 @@ def main():
 
         for i in iterator:
             if run_parallel:
-                i, success, single_action_history, single_assessment_history, total_time = i.get()
+                i, success, single_action_history, single_assessment_history, total_time, single_responses = i.get()
             else:
-                i, success, single_action_history, single_assessment_history, total_time = \
+                i, success, single_action_history, single_assessment_history, total_time, single_responses = \
                     run_trial(i, args, number_range, setup=False, concept=concept,
                               prior_distribution=prior_distribution, teacher=teacher)
 
             error_history.append(single_assessment_history)
             action_history.append(single_action_history)
             time_history.append(total_time)
+            response_history.append(single_responses)
             if not success:
                 failures.append(i)
 
         if run_parallel and progress:
             progress.close()
 
-        handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures, model_info)
+        handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures,
+                             response_history, model_info)
 
 
 if __name__ == '__main__':
