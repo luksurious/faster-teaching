@@ -4,6 +4,7 @@ import time
 from copy import deepcopy
 
 import numpy as np
+from tqdm import tqdm
 
 from actions import Actions, ACTION_COSTS
 from concepts.concept_base import ConceptBase
@@ -45,14 +46,26 @@ class ForwardSearchPlanner(BasePlanner):
                 break
 
     def perform_preplanning(self, preplan_len: int = 9, preplan_samples: int = 10):
+        start_time = time.time()
+
+        progress = tqdm(total=preplan_len)
+
         self.preplan_walker(self.best_action_stack, preplan_len, self.belief.copy(),
-                            [preplan_samples] * self.plan_horizon)
+                            [preplan_samples] * self.plan_horizon, progress)
+
+        progress.close()
+
+        self.pre_plan_duration = time.time() - start_time
+
+        self.plan_duration_history = []
 
         return self.best_action_stack
 
-    def preplan_walker(self, parent, level, belief, samples):
+    def preplan_walker(self, parent, level, belief, samples, progress: tqdm):
         # type, item, value
         next_action = self.plan_best_action(self.plan_horizon, samples, belief)
+        if level == progress.total:
+            progress.update()
 
         parent['action'] = next_action
         if level == 1:
@@ -67,7 +80,7 @@ class ForwardSearchPlanner(BasePlanner):
         else:
             responses = self.concept.get_observation_space()
 
-        for response in responses:
+        for idx, response in enumerate(responses):
             parent['responses'][response] = {
                 'action': None,
                 'responses': {}
@@ -75,7 +88,10 @@ class ForwardSearchPlanner(BasePlanner):
             new_belief = belief.copy()
             new_belief.update_belief(next_action[0], result, response)
 
-            self.preplan_walker(parent['responses'][response], level - 1, new_belief, samples)
+            if idx == len(responses)-1:
+                progress.update()
+
+            self.preplan_walker(parent['responses'][response], level - 1, new_belief, samples, progress)
 
     def load_preplanning(self, data):
         self.best_action_stack = deepcopy(data)
@@ -98,6 +114,7 @@ class ForwardSearchPlanner(BasePlanner):
 
     def reset(self):
         self.action_count = 0
+        self.plan_duration_history = []
 
     def plan_best_action(self, horizon: int, samples: list, belief: BaseBelief = None):
         if len(samples) < horizon:
@@ -113,9 +130,11 @@ class ForwardSearchPlanner(BasePlanner):
         }
         self.forward_plan(belief.copy(), tree, horizon, samples)
 
+        plan_duration = time.time() - start_time
         if self.verbose:
-            print("// planning took %.2f" % (time.time() - start_time))
+            print("// planning took %.2f" % (plan_duration))
 
+        self.plan_duration_history.append(plan_duration)
         # self.print_plan_tree(tree)
 
         # find optimal path

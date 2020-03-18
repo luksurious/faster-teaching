@@ -7,6 +7,8 @@ class BasePlanner(ABC):
     def __init__(self, concept: ConceptBase, actions: list):
         self.actions = actions
         self.concept = concept
+        self.plan_duration_history = []
+        self.pre_plan_duration = 0
 
     @abstractmethod
     def choose_action(self, prev_response=None):

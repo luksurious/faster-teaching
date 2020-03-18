@@ -198,7 +198,7 @@ def handle_single_run_end(args, global_time_start, learner, success, teacher, mo
 
 
 def handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures,
-                         response_history, model_info):
+                         response_history, plan_duration_history, pre_plan_duration, model_info):
     model = args.planning_model
     if args.random:
         model = 'random'
@@ -234,10 +234,11 @@ def handle_multi_run_end(args, action_history, error_history, global_time_start,
     if len(failures) > 0:
         print("".join(["x" if i in failures else " " for i in range(args.sim_count)]) + "\n")
 
-    stats = print_statistics_table(error_history, time_history)
+    stats = print_statistics_table(error_history, time_history, plan_duration_history)
     print("Global time elapsed: %.2f" % (time.time() - global_time_start))
 
-    save_raw_data(action_history, error_history, time_history, failures, stats, response_history, mode, finish_time)
+    save_raw_data(action_history, error_history, time_history, failures, stats, response_history,
+                  plan_duration_history, pre_plan_duration, mode, finish_time)
 
 
 def describe_arguments(args):
@@ -347,7 +348,8 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
         print("Got exception %s" % str(e))
         print("- In iteration %d" % i)
 
-    return i, success, teacher.action_history, teacher.assessment_history, learner.total_time, teacher.response_history
+    return (i, success, teacher.action_history, teacher.assessment_history, learner.total_time,
+            teacher.response_history, teacher.planner.plan_duration_history)
 
 
 def exec_setup(args, number_range, load=False, load_file=None):
@@ -384,11 +386,14 @@ def main():
 
     global_time_start = time.time()
 
+    print("Setup & pre-compute actions\n")
     # create objects, and pre-compute actions for all cases
     # (objects only used in single and serial execution mode)
     concept, prior_distribution, teacher, belief = exec_setup(args, number_range,
                                                               load=args.plan_load_actions is not None,
                                                               load_file=args.plan_load_actions)
+
+    pre_plan_duration = teacher.planner.pre_plan_duration
 
     if args.single_run:
         learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
@@ -398,10 +403,13 @@ def main():
 
         # print("History particle checks: %d" % belief.history_calcs)
     else:
+        print("\nRun %d simulations\n" % args.sim_count)
+
         error_history = []
         action_history = []
         time_history = []
         response_history = []
+        plan_duration_history = []
         failures = []
 
         run_parallel = args.pool != 1
@@ -423,16 +431,17 @@ def main():
 
         for i in iterator:
             if run_parallel:
-                i, success, single_action_history, single_assessment_history, total_time, single_responses = i.get()
+                i, success, trial_actions, trial_errors, total_time, single_responses, trial_plan_durations = i.get()
             else:
-                i, success, single_action_history, single_assessment_history, total_time, single_responses = \
+                i, success, trial_actions, trial_errors, total_time, single_responses, trial_plan_durations = \
                     run_trial(i, args, number_range, setup=False, concept=concept,
                               prior_distribution=prior_distribution, teacher=teacher)
 
-            error_history.append(single_assessment_history)
-            action_history.append(single_action_history)
+            error_history.append(trial_errors)
+            action_history.append(trial_actions)
             time_history.append(total_time)
             response_history.append(single_responses)
+            plan_duration_history.append(trial_plan_durations)
             if not success:
                 failures.append(i)
 
@@ -440,7 +449,7 @@ def main():
             progress.close()
 
         handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures,
-                             response_history, model_info)
+                             response_history, plan_duration_history, pre_plan_duration, model_info)
 
 
 if __name__ == '__main__':

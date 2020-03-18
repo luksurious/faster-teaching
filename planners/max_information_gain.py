@@ -37,8 +37,10 @@ class MaxInformationGainPlanner(BasePlanner):
 
         action_data = self.find_max_gain_item(self.belief.copy())
 
+        plan_duration = time.time() - start_time
+        self.plan_duration_history.append(plan_duration)
         if self.verbose:
-            print("// planning took %.2f" % (time.time() - start_time))
+            print("// planning took %.2f" % plan_duration)
 
         return action_data
 
@@ -71,9 +73,9 @@ class MaxInformationGainPlanner(BasePlanner):
                 actions.append((teaching_action,) + result)
 
         gains = np.array(gains)
-        min_idx = np.flatnonzero(gains.min() == gains)
+        max_idxs = np.flatnonzero(gains.max() == gains)
 
-        return actions[np.random.choice(min_idx)]
+        return actions[np.random.choice(max_idxs)]
 
     def calc_information_gain(self, belief: ContinuousModel, result, teaching_action, entropy_before):
         gain = 0

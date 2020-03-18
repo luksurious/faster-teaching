@@ -90,8 +90,13 @@ def plot_multi_actions(action_history, model_subtitle=None, mode='multi', finish
     plt.savefig(OUTPUT + mode + "_actions_%d.png" % finish_time)
 
 
-def print_statistics_table(error_history, time_history):
-    learned_history = [np.argmin(errors) if min(errors) == 0 else 40 for errors in error_history]
+def print_statistics_table(error_history, time_history, plan_duration_history):
+    learned_history = [np.argmin(errors)+1 if min(errors) == 0 else 40 for errors in error_history]
+
+    plan_duration_history = [item for plan_durations in plan_duration_history
+                             if len(plan_durations) > 0 for item in plan_durations]
+
+    print("Online plannings done: %d" % len(plan_duration_history))
 
     np.set_printoptions(precision=2)
     print("\nSome statistics")
@@ -100,7 +105,11 @@ def print_statistics_table(error_history, time_history):
                     for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
 
         ["Phases"] + ["%.2f" % item
-                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]]
+                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]],
+
+        ["Planning duration"] + ["%.2f" % item
+                                 for item in [np.mean(plan_duration_history), np.median(plan_duration_history),
+                                              np.std(plan_duration_history)]]
     ]
     print(tt.to_string(stats_arr, header=["", "Mean", "Median", "SD"], alignment="lrrr"))
 
@@ -113,13 +122,16 @@ def add_titles(title, model_subtitle):
         plt.title(model_subtitle, fontsize=9)
 
 
-def save_raw_data(action_history, error_history, time_history, failures, stats, response_history, mode, finish_time):
+def save_raw_data(action_history, error_history, time_history, failures, stats, response_history,
+                  plan_duration_history, pre_plan_duration, mode, finish_time):
     with open(OUTPUT + mode + "_data_%d.json" % finish_time, 'w') as file:
         file.write(json.dumps({
             "stats": stats,
+            "precomputation": pre_plan_duration,
             "actions": action_history,
             "responses": response_history,
             "errors": error_history,
             "time": time_history,
+            "plan_durations": plan_duration_history,
             "failures": failures
         }, cls=CustomEncoder))
