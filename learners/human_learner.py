@@ -7,9 +7,6 @@ class HumanLearner(BaseLearner):
     def __init__(self, concept: ConceptBase):
         super().__init__(concept)
 
-        self.problem_len = len(concept.get_true_concepts())
-        # self.letters = [chr(ord('A')+i) for i in range(self.problem_len)]
-
         self.total_time = 0
         self.action_start_time = 0
 
@@ -20,16 +17,14 @@ class HumanLearner(BaseLearner):
     def see_quiz(self, quiz):
         self.action_start_time = time.time()
         response = input(self.concept.gen_readable_format(quiz, False))
+        response = self.concept.format_response(response)
         return response
 
     def see_question_question(self, question):
         self.action_start_time = time.time()
         # Question with feedback
         response = input(self.concept.gen_readable_format(question, False))
-        try:
-            response = int(response)
-        except:
-            response = -1
+        response = self.concept.format_response(response)
 
         return response
 
@@ -41,6 +36,7 @@ class HumanLearner(BaseLearner):
 
     def answer(self, item):
         curr_guess = input("What is %s?" % item[1])
+        curr_guess = self.concept.format_response(curr_guess)
 
         return curr_guess
 

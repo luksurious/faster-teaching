@@ -18,8 +18,13 @@ class Actions(Enum):
         return self._name_
 
 
-ACTION_COSTS = {
+ACTION_COSTS_LETTERS = {
     Actions.EXAMPLE: 7.0,
     Actions.QUIZ: 6.6,
     Actions.FEEDBACK: 12.0
+}
+ACTION_COSTS_NUMBER = {
+    Actions.EXAMPLE: 2.4,
+    Actions.QUIZ: 2.8,
+    Actions.FEEDBACK: 4.8
 }

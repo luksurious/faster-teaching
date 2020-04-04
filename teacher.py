@@ -35,7 +35,7 @@ class Teacher:
         self.planner.start_teaching_phase()
 
         prev_response = None
-        for self.action_count in range(self.max_phases*3):
+        for self.action_count in range(self.max_phases*self.learning_phase_len):
             action_type, equation, result = self.planner.choose_action(prev_response)
 
             action_data = (equation, result)
@@ -97,7 +97,8 @@ class Teacher:
 
     def reveal_answer(self):
         print("True answer:")
-        print(self.concept.get_true_concepts())
+        true_concept = self.concept.get_concept_space()[self.concept.get_true_concept_idx()]
+        print(str(true_concept))
 
     def enroll_learner(self, learner):
         self.learner = learner

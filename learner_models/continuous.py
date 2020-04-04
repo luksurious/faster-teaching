@@ -7,8 +7,6 @@ import numpy as np
 
 
 class ContinuousModel(BaseBelief):
-    # What is not so nice is that the two other models use an explicit belief over the hypotheses (self.belief_state)
-    # which is not used here. It's a bit of an inconsistent extension but the setup & caching is still the same
     def __init__(self, prior, concept: ConceptBase, particle_num: int = 16, trans_noise: float = 0.14,
                  prod_noise: float = 0.12, verbose: bool = True):
         super().__init__([], prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
@@ -52,7 +50,6 @@ class ContinuousModel(BaseBelief):
             # update based on response
             self.update_from_response(response, result)
 
-        # TODO verify that it works; improvement/correction over original
         transition_happened = result[1] is not None and result[1] != response
         if transition_happened:
             # update based on content
@@ -69,7 +66,7 @@ class ContinuousModel(BaseBelief):
 
     def check_particles_valid(self):
         # check for particle depletion
-        # Note: sum instead of max compared to other update
+        # TODO Note: sum instead of max compared to other update
         if np.sum(self.particle_weights) < self.particle_depletion_limit:
             self.recreate_particles()
         else:
@@ -106,7 +103,7 @@ class ContinuousModel(BaseBelief):
     def assert_particle_limit(self):
         if len(self.particle_dists) > self.particle_num:
             while len(self.particle_dists) > self.particle_num:
-                min_idx = np.argmin(self.particle_weights)
+                min_idx: int = np.argmin(self.particle_weights)
                 del self.particle_dists[min_idx]
                 del self.particle_weights[min_idx]
 
@@ -141,7 +138,6 @@ class ContinuousModel(BaseBelief):
 
         for action_type, result, response in self.action_history:
             # update according to observed data
-            # TODO: paper note: only actions with evidence
             particle2_dist = self.transition_model(particle2_dist, None, action_type, result, None)
 
         self.particle_dists.append(particle2_dist)

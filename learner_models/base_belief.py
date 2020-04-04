@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 import numpy as np
 from abc import ABC, abstractmethod
 
@@ -9,6 +11,8 @@ DEBUG = False
 
 
 class BaseBelief(ABC):
+    state_action_values: Dict[Any, np.ndarray]
+
     def __init__(self, belief_state, prior, concept: ConceptBase, trans_noise: float = 0, prod_noise: float = 0,
                  verbose: bool = True):
         self.belief_state = belief_state
@@ -35,7 +39,7 @@ class BaseBelief(ABC):
         for action in self.concept.get_rl_actions():
             self.state_action_values[action] = np.zeros(len(self.hypotheses))
             for idx, state in enumerate(self.hypotheses):
-                self.state_action_values[action][idx] = self.concept.evaluate_concept((action,), state, idx)
+                self.state_action_values[action][idx] = self.concept.evaluate_concept((action, None), state, idx)
 
     def reset(self):
         self.belief_state = self.belief_state_orig.copy()
@@ -63,7 +67,7 @@ class BaseBelief(ABC):
             if DEBUG:
                 print("Inconsistent quiz response")
 
-            self.belief_state[:] = 1
+            self.belief_state = self.prior.copy()
             new_belief = self.belief_update_formula(action_type, result, response)
 
             if np.max(new_belief) == 0:

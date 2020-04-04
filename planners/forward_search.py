@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 from tqdm import tqdm
 
-from actions import Actions, ACTION_COSTS
+from actions import Actions, ACTION_COSTS_LETTERS
 from concepts.concept_base import ConceptBase
 from learner_models.base_belief import BaseBelief
 from planners.base_planner import BasePlanner
@@ -33,17 +33,10 @@ class ForwardSearchPlanner(BasePlanner):
 
         self.belief = belief
 
-        self.concept_space = self.concept.get_concept_space()
-
         self.verbose = verbose
 
         # position of true concept
-        self.true_concept_pos = -1
-        true_concept = self.concept.get_true_concepts()
-        for i in range(len(self.concept_space)):
-            if np.all(self.concept_space[i] == true_concept):
-                self.true_concept_pos = i
-                break
+        self.true_concept_pos = self.concept.get_true_concept_idx()
 
     def perform_preplanning(self, preplan_len: int = 9, preplan_samples: int = 10):
         start_time = time.time()
@@ -191,7 +184,7 @@ class ForwardSearchPlanner(BasePlanner):
 
             for teaching_action in self.actions:
 
-                val = ACTION_COSTS[teaching_action]
+                val = ACTION_COSTS_LETTERS[teaching_action]
 
                 new_node = {
                     "children": [],
@@ -200,8 +193,7 @@ class ForwardSearchPlanner(BasePlanner):
                 }
 
                 val += self.plan_single_action(belief, child_sample_len, depth, model_state, new_node, result,
-                                               teaching_action,
-                                               min_cost, val)
+                                               teaching_action, min_cost, val)
 
                 # propagate back up
                 new_node["value"] = val
@@ -263,6 +255,7 @@ class ForwardSearchPlanner(BasePlanner):
         return samples
 
     def estimate_belief(self, belief: BaseBelief):
-        # TODO move to concept
+        # TODO move to concept;
+        # TODO note: not defined for number game? assume same
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
-        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(ACTION_COSTS.values())
+        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.concept.action_costs.values())

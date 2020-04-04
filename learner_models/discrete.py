@@ -1,6 +1,6 @@
 from collections import deque
 
-from concepts.concept_base import ConceptBase
+from concepts.concept_base import ConceptBase, ActionResult
 from learner_models.memoryless import MemorylessModel
 from actions import Actions
 
@@ -10,18 +10,15 @@ import numpy as np
 IGNORE_QUIZ_MEMORY = True
 
 
-# TODO: redo simulations
 class DiscreteMemoryModel(MemorylessModel):
-
     def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, trans_noise=0.34, prod_noise=0.046,
                  verbose: bool = True):
         super().__init__(belief_state, prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
 
         # TODO check if still happens: devolves into asking only quizzes at some point?
-
         self.memory_size = memory_size
 
-        # TODO paper note: state space not multiplied by memory possibilities
+        # type: deque[ActionResult]
         self.memory = deque(maxlen=memory_size)
 
     def reset(self):
@@ -52,12 +49,12 @@ class DiscreteMemoryModel(MemorylessModel):
     def find_consistent_states_for_transition(self, action):
         # state might have changed
         consistent_states = self.state_action_values[action[0]] == action[1]
-        const_indices = np.flatnonzero(consistent_states)
 
         if len(self.memory) > 0:
+            const_indices = np.flatnonzero(consistent_states)
             for idx in const_indices:
                 # check if consistent with memory
-                consistent_states[idx] = self.matches_memory(self.hypotheses[idx])
+                consistent_states[idx] = self.matches_memory(self.hypotheses[idx], idx)
 
         return consistent_states
 
@@ -81,15 +78,14 @@ class DiscreteMemoryModel(MemorylessModel):
 
         return p_s
 
-    def matches_memory(self, new_state):
+    def matches_memory(self, new_state, idx: int = None):
         matches = True
         for memory_item in self.memory:
             if memory_item[0] == Actions.QUIZ:
                 continue
 
-            if self.concept.evaluate_concept(memory_item[1], new_state) != memory_item[1][1]:
+            if self.concept.evaluate_concept(memory_item[1], new_state, idx) != memory_item[1][1]:
                 matches = False
                 break
 
         return matches
-

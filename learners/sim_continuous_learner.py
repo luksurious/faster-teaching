@@ -1,13 +1,10 @@
-import itertools
 import time
 
 import numpy as np
 
-from collections import deque
-
+from actions import Actions
 from concepts.concept_base import ConceptBase
 from learners.base_learner import BaseLearner
-from learners.sim_memoryless_learner import SimMemorylessLearner
 
 
 class SimContinuousLearner(BaseLearner):
@@ -23,11 +20,7 @@ class SimContinuousLearner(BaseLearner):
 
         self.total_time = 0
 
-        self.example_time = 7.0
-        self.quiz_time = 6.6
-        self.question_time = 12.0
-
-        self.transition_noise = 0.14  # pretty high
+        self.transition_noise = 0.14
         self.production_noise = 0.12
 
         # distribution about possibilities
@@ -63,14 +56,14 @@ class SimContinuousLearner(BaseLearner):
 
         self.update_state(example)
 
-        self.total_time += self.example_time
+        self.total_time += self.concept.action_costs[Actions.EXAMPLE]
 
     def see_quiz(self, quiz):
         self.assessment_guess = None
 
         answer_sample = self.generate_answer(quiz)
 
-        self.total_time += self.quiz_time
+        self.total_time += self.concept.action_costs[Actions.QUIZ]
 
         return answer_sample
 
@@ -107,14 +100,14 @@ class SimContinuousLearner(BaseLearner):
         time.sleep(self.pause)
         self.update_state(question)
 
-        self.total_time += self.question_time
+        self.total_time += self.concept.action_costs[Actions.FEEDBACK]
 
     def answer(self, item):
         if self.assessment_guess is None:
             concept_id = np.random.choice(len(self.concept_belief), p=self.concept_belief)
             self.assessment_guess = self.concepts[concept_id]
 
-        curr_guess = self.assessment_guess[item[0]]
+        curr_guess = self.concept.evaluate_concept(item, self.assessment_guess)
 
         self.print("I think %s is %d" % (item[1], curr_guess))
 

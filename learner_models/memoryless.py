@@ -7,7 +7,6 @@ import numpy as np
 
 # TODO check why as 4th action a quiz is chosen
 class MemorylessModel(BaseBelief):
-
     def __init__(self, belief_state, prior, concept: ConceptBase, trans_noise=0.15, prod_noise=0.019,
                  verbose: bool = True):
         super().__init__(belief_state, prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
@@ -45,13 +44,24 @@ class MemorylessModel(BaseBelief):
         # state might have changed
         consistent_states = self.find_consistent_states_for_transition(action)
 
-        # TODO assuming uniform prior
-        uniform_cons_trans_prob = 1 / np.count_nonzero(consistent_states)
         incons_belief_prob = np.sum(self.belief_state[~consistent_states])
-        transition_prob = uniform_cons_trans_prob * (1 - self.transition_noise) * incons_belief_prob
-
         new_belief[~consistent_states] = self.belief_state[~consistent_states] * self.transition_noise
-        new_belief[consistent_states] = self.belief_state[consistent_states] + transition_prob
+
+        if np.max(self.prior) == np.min(self.prior):
+            # uniform prior - probabilities are all the same
+            uniform_cons_trans_prob = 1 / np.count_nonzero(consistent_states)
+
+            transition_prob = uniform_cons_trans_prob * (1 - self.transition_noise) * incons_belief_prob
+            new_belief[consistent_states] = self.belief_state[consistent_states] + transition_prob
+        else:
+            # uneven prior - calc transition for each consistent state separately
+            cons_prior_sum = np.sum(self.prior[consistent_states])
+            for idx in np.flatnonzero(consistent_states):
+                prior = self.prior[idx]
+                cons_trans_prob = prior / cons_prior_sum
+
+                transition_prob = cons_trans_prob * (1 - self.transition_noise) * incons_belief_prob
+                new_belief[idx] = self.belief_state[idx] + transition_prob
 
     def find_consistent_states_for_transition(self, action):
         consistent_states = self.state_action_values[action[0]] == action[1]

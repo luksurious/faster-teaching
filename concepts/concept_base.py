@@ -1,23 +1,47 @@
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Tuple, List
 
+import numpy as np
 from actions import Actions
 
-ActionResult = Tuple[any, str]
+ActionResult = Tuple[any, any]
+
+
+class ConceptItemBase(ABC):
+    @abstractmethod
+    def check(self, item) -> any:
+        pass
+
+    @abstractmethod
+    def __eq__(self, other):
+        pass
+
+    @abstractmethod
+    def __str__(self):
+        pass
+
+
+ConceptList = List[ConceptItemBase]
 
 
 class ConceptBase(ABC):
+    def __init__(self, action_costs: dict) -> None:
+        self.action_costs = action_costs
 
     @abstractmethod
     def assess(self, learner) -> (bool, float):
         return False
 
     @abstractmethod
-    def get_true_concepts(self):
-        return None
+    def get_true_concept_idx(self) -> int:
+        return -1
 
     @abstractmethod
-    def get_concept_space(self) -> iter:
+    def get_concept_space(self) -> ConceptList:
+        pass
+
+    @abstractmethod
+    def get_default_prior(self) -> np.ndarray:
         pass
 
     def teaching_action(self, action_type: Actions) -> ActionResult:
@@ -31,35 +55,39 @@ class ConceptBase(ABC):
             raise Exception("Unknown action %s" % str(action_type))
 
     @abstractmethod
-    def generate_example(self, alternative_concept=None) -> ActionResult:
+    def generate_example(self) -> ActionResult:
         raw_result = []
-        output = ""
-        return raw_result, output
+        result = ""
+        return raw_result, result
 
     @abstractmethod
-    def generate_question_with_feedback(self, alternative_concept=None) -> ActionResult:
+    def generate_question_with_feedback(self) -> ActionResult:
         raw_result = []
-        output = ""
-        return raw_result, output
+        result = ""
+        return raw_result, result
 
     @abstractmethod
-    def generate_quiz(self, alternative_concept=None) -> ActionResult:
+    def generate_quiz(self) -> ActionResult:
         raw_result = []
-        output = ""
-        return raw_result, output
+        result = ""
+        return raw_result, result
 
     @abstractmethod
-    def evaluate_concept(self, action, concept=None, idx=None):
+    def evaluate_concept(self, action: ActionResult, concept: ConceptItemBase = None, idx: int = None):
         pass
 
     @abstractmethod
-    def gen_readable_format(self, result, show_answer=True):
+    def gen_readable_format(self, result: ActionResult, show_answer=True):
         pass
 
     @abstractmethod
-    def get_rl_actions(self, sample_count = None):
+    def format_response(self, response: str) -> any:
+        return response
+
+    @abstractmethod
+    def get_rl_actions(self) -> iter:
         pass
 
     @abstractmethod
-    def get_observation_space(self):
+    def get_observation_space(self) -> iter:
         pass

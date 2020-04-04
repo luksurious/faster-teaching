@@ -38,23 +38,30 @@ class SimDiscreteLearner(SimMemorylessLearner):
             self.find_stochastically(example)
 
     def find_stochastically(self, example):
+        # TODO can be precomputed and cached
         concepts_results = np.array([self.concept.evaluate_concept(example, c) for c in self.concept_space])
         consistent_concepts_filter = concepts_results == example[1]
         consistent_concepts_prob = self.prior_distribution[consistent_concepts_filter]
-        consistent_concepts = self.concept_space[consistent_concepts_filter]
 
+        consistent_concepts = np.flatnonzero(consistent_concepts_filter)
         for memory_item in self.memory:
             if memory_item[1] is None:
                 continue
 
-            concepts_results = np.array([self.concept.evaluate_concept(memory_item, c) for c in consistent_concepts])
+            concepts_results = np.array([self.concept.evaluate_concept(memory_item, self.concept_space[c])
+                                         for c in consistent_concepts])
+
             consistent_concepts_filter = concepts_results == memory_item[1]
             consistent_concepts_prob = consistent_concepts_prob[consistent_concepts_filter]
+
             consistent_concepts = consistent_concepts[consistent_concepts_filter]
 
         consistent_concepts_prob /= np.sum(consistent_concepts_prob)
-        self.concept_belief = consistent_concepts[np.random.choice(range(len(consistent_concepts)),
-                                                                   p=consistent_concepts_prob)]
+
+        assert len(consistent_concepts) > 0, "invalid memory/action combination encountered, no matching concept found"
+
+        new_belief_idx = np.random.choice(consistent_concepts, p=consistent_concepts_prob)
+        self.concept_belief = self.concept_space[new_belief_idx]
 
     def find_match_by_pair(self, example):
         # find pairs matching example
@@ -65,7 +72,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
             # reset values
             original_values = self.concept_belief.copy()
             # TODO or would it be better if the numbers were reset one by one?
-            self.concept_belief = [-1] * self.problem_len
+            self.concept_belief = [-1] * len(original_values)
             found_match = self.find_match_with_memory(example, possible_pairs)
 
             if not found_match:

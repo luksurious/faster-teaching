@@ -3,13 +3,14 @@ import numpy as np
 import itertools
 import random
 
-from actions import Actions
-from .concept_base import ConceptBase
+from actions import Actions, ACTION_COSTS_LETTERS
+from .concept_base import ConceptBase, ConceptItemBase
 
 
 # problem: alphabetic arithmetic
 class LetterAddition(ConceptBase):
     def __init__(self, problem_len: int, number_range: list = None):
+        super().__init__(ACTION_COSTS_LETTERS)
         elements = np.zeros(problem_len)
         start = ord('A')
 
@@ -32,6 +33,12 @@ class LetterAddition(ConceptBase):
         self.possible_values = set([x[0] + x[1] for x in itertools.combinations(self.numbers, 2)])
 
         self.concept_val_cache = {}
+
+        self.true_concept_pos = -1
+        for i in range(len(self.all_concepts)):
+            if np.all(self.all_concepts[i] == self.item_values):
+                self.true_concept_pos = i
+                break
 
     def assign_numbers(self, elements, problem_len, start):
         assign_numbers = self.numbers.copy()
@@ -118,8 +125,8 @@ class LetterAddition(ConceptBase):
 
         return correct, errors
 
-    def get_true_concepts(self):
-        return self.item_values
+    def get_true_concept_idx(self):
+        return self.true_concept_pos
 
     def get_concept_space(self):
         return self.all_concepts
@@ -129,3 +136,25 @@ class LetterAddition(ConceptBase):
 
     def get_observation_space(self):
         return self.possible_values
+
+    def format_response(self, response):
+        try:
+            response = int(response)
+        except:
+            response = -1
+
+        return response
+
+
+class LetterConceptItem(ConceptItemBase):
+    def __init__(self, item_values: list):
+        self.item_values = item_values
+
+    def check(self, item) -> any:
+        pass
+
+    def __eq__(self, other):
+        pass
+
+    def __str__(self):
+        pass

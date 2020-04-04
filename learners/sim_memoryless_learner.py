@@ -4,6 +4,7 @@ import time
 
 import numpy as np
 
+from actions import Actions
 from concepts.concept_base import ConceptBase
 from learners.base_learner import BaseLearner
 
@@ -28,13 +29,8 @@ class SimMemorylessLearner(BaseLearner):
         self.prior_distribution = prior_distribution
 
         self.concept_belief = self.concept_space[np.random.choice(range(concept_space_len), p=self.prior_distribution)]
-        self.problem_len = len(self.concept_belief)
 
         self.total_time = 0
-
-        self.example_time = 7.0
-        self.quiz_time = 6.6
-        self.question_time = 12.0
 
         self.mode = "pair"
 
@@ -49,12 +45,12 @@ class SimMemorylessLearner(BaseLearner):
         else:
             self.update_state(example)
 
-        self.total_time += self.example_time
+        self.total_time += self.concept.action_costs[Actions.EXAMPLE]
 
     def see_quiz(self, quiz):
         response = self.generate_answer(quiz)
 
-        self.total_time += self.quiz_time
+        self.total_time += self.concept.action_costs[Actions.QUIZ]
 
         return response
 
@@ -80,7 +76,7 @@ class SimMemorylessLearner(BaseLearner):
         else:
             self.print("Correct")
 
-        self.total_time += self.question_time
+        self.total_time += self.concept.action_costs[Actions.FEEDBACK]
         time.sleep(self.pause)
 
     def update_state(self, example):
@@ -90,7 +86,6 @@ class SimMemorylessLearner(BaseLearner):
 
         if self.mode == "pair":
             possible_pairs = self.generate_possible_pairs(example[1])
-            # print(possible_pairs)
 
             # TODO: prefer options with a match of current belief? i.e. least changes
             pair = random.choice(possible_pairs)
@@ -98,20 +93,18 @@ class SimMemorylessLearner(BaseLearner):
             self.update_values_with_pair(example[0], pair)
 
             self.fill_empty_mappings()
-            # assert unique
-            assert len(set(self.concept_belief)) == self.problem_len, "Non-unique values assigned: %s" % self.concept_belief
         else:
             # Sample concept consistent with action according to prior
             concepts_results = np.array([self.concept.evaluate_concept(example, c) for c in self.concept_space])
             consistent_concepts_filter = concepts_results == example[1]
 
-            consistent_concepts = self.concept_space[consistent_concepts_filter]
+            consistent_concepts = np.flatnonzero(consistent_concepts_filter)
 
             consistent_concepts_prob = self.prior_distribution[consistent_concepts_filter]
             consistent_concepts_prob /= np.sum(consistent_concepts_prob)
 
-            self.concept_belief = consistent_concepts[np.random.choice(range(len(consistent_concepts)),
-                                                                       p=consistent_concepts_prob)]
+            new_belief_idx = np.random.choice(consistent_concepts, p=consistent_concepts_prob)
+            self.concept_belief = self.concept_space[new_belief_idx]
 
     def update_values_with_pair(self, letters, pair):
         # mark values from the pick as invalid
@@ -161,7 +154,8 @@ class SimMemorylessLearner(BaseLearner):
         return self.concept.evaluate_concept([equation], self.concept_belief)
 
     def answer(self, item):
-        curr_guess = self.concept_belief[item[0]]
+        curr_guess = self.concept.evaluate_concept(item, self.concept_belief)
+        curr_guess = self.concept.format_response(curr_guess)
 
         self.print("I think %s is %d" % (item[1], curr_guess))
 

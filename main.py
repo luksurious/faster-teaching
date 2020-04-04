@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from actions import Actions
 from concepts.letter_addition import LetterAddition
+from concepts.number_game import NumberGame
 from learner_models.continuous import ContinuousModel
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
@@ -63,6 +64,7 @@ def setup_arguments():
                                                                "available. 1: no parallelization")
 
     # Task arguments
+    parser.add_argument('-t', '--task', default="letter", choices=["letter", "number_game"], help="The task to learn")
     parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
     parser.add_argument('-r', '--number_range', type=int, default=6, help="Upper bound of the number range mapping")
 
@@ -90,10 +92,19 @@ def setup_arguments():
 def create_simulated_learner(args, concept, number_range, prior_distribution):
     if args.sim_model == 'memoryless':
         learner = SimMemorylessLearner(concept, number_range, prior_distribution)
+        if args.task == 'number_game':
+            learner.production_noise = 0.14
+            learner.transition_noise = 0.25
     elif args.sim_model == 'discrete':
         learner = SimDiscreteLearner(concept, number_range, prior_distribution, args.sim_discrete_memory)
+        if args.task == 'number_game':
+            learner.production_noise = 0.10
+            learner.transition_noise = 0.18
     elif args.sim_model == 'continuous':
         learner = SimContinuousLearner(concept, number_range, prior_distribution)
+        if args.task == 'number_game':
+            learner.production_noise = 0.15
+            learner.transition_noise = 0.21
     else:
         raise Exception("Unknown simulation model")
 
@@ -111,11 +122,20 @@ def create_simulated_learner(args, concept, number_range, prior_distribution):
 def create_belief_model(args, prior_distribution, concept):
     if args.planning_model == 'memoryless':
         belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=args.verbose)
+        if args.task == 'number_game':
+            belief.production_noise = 0.14
+            belief.transition_noise = 0.25
     elif args.planning_model == 'discrete':
         belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
+        if args.task == 'number_game':
+            belief.production_noise = 0.10
+            belief.transition_noise = 0.18
     elif args.planning_model == 'continuous':
         belief = ContinuousModel(prior_distribution, concept, args.particle_limit, verbose=args.verbose)
+        if args.task == 'number_game':
+            belief.production_noise = 0.15
+            belief.transition_noise = 0.21
     else:
         raise Exception("Unknown simulation model")
 
@@ -147,10 +167,13 @@ def create_teacher(args, concept, belief):
 
 
 def create_teaching_objects(args, number_range):
-    concept = LetterAddition(args.problem_len, number_range=number_range)
+    if args.task == 'number_game':
+        concept = NumberGame()
+    else:
+        concept = LetterAddition(args.problem_len, number_range=number_range)
 
-    prior_distribution = np.ones(len(concept.get_concept_space()))
-    prior_distribution /= np.sum(prior_distribution)
+    prior_distribution = concept.get_default_prior()
+    assert np.sum(prior_distribution) == 1.
 
     belief = create_belief_model(args, prior_distribution, concept)
     teacher = create_teacher(args, concept, belief)
@@ -173,6 +196,18 @@ def perform_preplanning(args, teacher):
     result = teacher.planner.perform_preplanning(args.plan_pre_horizon, args.plan_pre_samples)
 
     if args.plan_pre_horizon > 0:
+        leaves = 0
+        stack = list(result['responses'].items())
+        while len(stack) > 0:
+            for el in stack:
+                branch = el[1]
+                if len(branch['responses']) == 0:
+                    leaves += 1
+                else:
+                    stack += list(branch['responses'].items())
+                stack.remove(el)
+
+        print("- Computed {:d} branches".format(leaves))
         print("Precomputing actions took %.2f s\n" % (time.time() - setup_start))
 
     return result
@@ -320,7 +355,10 @@ def describe_arguments(args):
         print("\nSimulation: %d trials" % args.sim_count)
         learner += " x%d" % args.sim_count
 
-    print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range - 1))
+    if args.task == 'number_game':
+        print("\nProblem: Number Game")
+    else:
+        print("\nProblem: Letter Addition with %d letters, mapping to 0-%d" % (args.problem_len, args.number_range - 1))
 
     print("\n-------------------------\n")
 
