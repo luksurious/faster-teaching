@@ -84,7 +84,7 @@ class DiscreteMemoryModel(MemorylessModel):
             if memory_item[0] == Actions.QUIZ:
                 continue
 
-            if self.concept.evaluate_concept(memory_item[1], new_state, idx) != memory_item[1][1]:
+            if self.concept.evaluate_concept(memory_item[1][0], new_state, idx) != memory_item[1][1]:
                 matches = False
                 break
 

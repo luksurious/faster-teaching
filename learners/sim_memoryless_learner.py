@@ -95,7 +95,7 @@ class SimMemorylessLearner(BaseLearner):
             self.fill_empty_mappings()
         else:
             # Sample concept consistent with action according to prior
-            concepts_results = np.array([self.concept.evaluate_concept(example, c) for c in self.concept_space])
+            concepts_results = np.array([self.concept.evaluate_concept(example[0], c) for c in self.concept_space])
             consistent_concepts_filter = concepts_results == example[1]
 
             consistent_concepts = np.flatnonzero(consistent_concepts_filter)
@@ -151,10 +151,10 @@ class SimMemorylessLearner(BaseLearner):
         return num_reassign, refill_idx
 
     def self_evaluate(self, equation):
-        return self.concept.evaluate_concept([equation], self.concept_belief)
+        return self.concept.evaluate_concept(equation, self.concept_belief)
 
     def answer(self, item):
-        curr_guess = self.concept.evaluate_concept(item, self.concept_belief)
+        curr_guess = self.concept.evaluate_concept(item[0], self.concept_belief)
         curr_guess = self.concept.format_response(curr_guess)
 
         self.print("I think %s is %d" % (item[1], curr_guess))

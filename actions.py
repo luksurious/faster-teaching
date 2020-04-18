@@ -28,3 +28,8 @@ ACTION_COSTS_NUMBER = {
     Actions.QUIZ: 2.8,
     Actions.FEEDBACK: 4.8
 }
+ACTION_COSTS_SAMPLE = {
+    Actions.EXAMPLE: 0.0,
+    Actions.QUIZ: 0.0,
+    Actions.FEEDBACK: 0.0
+}

@@ -60,6 +60,12 @@ class LetterAddition(ConceptBase):
         if values is None:
             values = self.item_values
         result = 0
+
+        try:
+            equation = iter(equation)
+        except TypeError:
+            equation = iter([equation])
+
         for letter_idx in equation:
             result += values[letter_idx]
 
@@ -92,17 +98,17 @@ class LetterAddition(ConceptBase):
 
     def evaluate_concept(self, result, concept=None, idx=None):
         if concept is None:
-            return int(self.evaluate_equation(result[0]))
+            return int(self.evaluate_equation(result))
         if idx is None:
-            return int(self.evaluate_equation(result[0], concept))
+            return int(self.evaluate_equation(result, concept))
 
-        if self.concept_val_cache.get(result[0], None) is None:
-            self.concept_val_cache[result[0]] = np.zeros(len(self.all_concepts))
+        if self.concept_val_cache.get(result, None) is None:
+            self.concept_val_cache[result] = np.zeros(len(self.all_concepts))
 
-        concept_val = self.concept_val_cache[result[0]][idx]
+        concept_val = self.concept_val_cache[result][idx]
         if concept_val == 0:
-            concept_val = self.evaluate_equation(result[0], concept)
-            self.concept_val_cache[result[0]][idx] = int(concept_val)
+            concept_val = self.evaluate_equation(result, concept)
+            self.concept_val_cache[result][idx] = int(concept_val)
 
         return concept_val
 
@@ -144,6 +150,12 @@ class LetterAddition(ConceptBase):
             response = -1
 
         return response
+
+    def get_default_prior(self) -> np.ndarray:
+        prior_distribution = np.ones(len(self.get_concept_space()))
+        prior_distribution /= np.sum(prior_distribution)
+
+        return prior_distribution
 
 
 class LetterConceptItem(ConceptItemBase):

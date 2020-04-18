@@ -23,7 +23,7 @@ class BasePlanner(ABC):
         pass
 
     @abstractmethod
-    def perform_preplanning(self):
+    def perform_preplanning(self, preplan_len, preplan_horizon, preplan_samples):
         pass
 
     @abstractmethod

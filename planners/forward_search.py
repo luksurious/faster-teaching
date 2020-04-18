@@ -38,13 +38,13 @@ class ForwardSearchPlanner(BasePlanner):
         # position of true concept
         self.true_concept_pos = self.concept.get_true_concept_idx()
 
-    def perform_preplanning(self, preplan_len: int = 9, preplan_samples: int = 10):
+    def perform_preplanning(self, preplan_len: int = 9, preplan_horizon: int = 2, preplan_samples: int = 10):
         start_time = time.time()
 
         progress = tqdm(total=preplan_len)
 
-        self.preplan_walker(self.best_action_stack, preplan_len, self.belief.copy(),
-                            [preplan_samples] * self.plan_horizon, progress)
+        self.preplan_walker(self.best_action_stack, preplan_len, self.belief.copy(), preplan_horizon,
+                            [preplan_samples] * preplan_horizon, progress)
 
         progress.close()
 
@@ -54,9 +54,9 @@ class ForwardSearchPlanner(BasePlanner):
 
         return self.best_action_stack
 
-    def preplan_walker(self, parent, level, belief, samples, progress: tqdm):
+    def preplan_walker(self, parent, level, belief, horizon, samples, progress: tqdm):
         # type, item, value
-        next_action = self.plan_best_action(self.plan_horizon, samples, belief)
+        next_action = self.plan_best_action(horizon, samples, belief)
         if level == progress.total:
             progress.update()
 
@@ -84,7 +84,7 @@ class ForwardSearchPlanner(BasePlanner):
             if idx == len(responses)-1:
                 progress.update()
 
-            self.preplan_walker(parent['responses'][response], level - 1, new_belief, samples, progress)
+            self.preplan_walker(parent['responses'][response], level - 1, new_belief, horizon, samples, progress)
 
     def load_preplanning(self, data):
         self.best_action_stack = deepcopy(data)
@@ -179,12 +179,12 @@ class ForwardSearchPlanner(BasePlanner):
         min_cost = float("Inf")
 
         for item in samples:
-            value = self.concept.evaluate_concept([item])
+            value = self.concept.evaluate_concept(item)
             result = (item, value)
 
             for teaching_action in self.actions:
 
-                val = ACTION_COSTS_LETTERS[teaching_action]
+                val = self.concept.action_costs[teaching_action]
 
                 new_node = {
                     "children": [],
@@ -258,4 +258,5 @@ class ForwardSearchPlanner(BasePlanner):
         # TODO move to concept;
         # TODO note: not defined for number game? assume same
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
-        return (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.concept.action_costs.values())
+        belief_val = (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.concept.action_costs.values())
+        return belief_val

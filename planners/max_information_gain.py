@@ -20,7 +20,7 @@ class MaxInformationGainPlanner(BasePlanner):
 
         self.verbose = verbose
 
-    def perform_preplanning(self, a=None, b=None):
+    def perform_preplanning(self, preplan_len=None, preplan_horizon=None, preplan_samples=None):
         pass
 
     def load_preplanning(self, data):
@@ -58,7 +58,7 @@ class MaxInformationGainPlanner(BasePlanner):
         entropy_before = self.calc_entropy(belief)
 
         for item in samples:
-            value = self.concept.evaluate_concept([item])
+            value = self.concept.evaluate_concept(item)
             result = (item, value)
 
             for teaching_action in self.actions:
@@ -66,9 +66,6 @@ class MaxInformationGainPlanner(BasePlanner):
                 cur_gain = self.calc_information_gain(belief, result, teaching_action, entropy_before)
                 belief.set_state(model_state)
 
-                # if cur_gain > max_gain:
-                #     max_gain = cur_gain
-                #     best_action = (teaching_action,) + result
                 gains.append(cur_gain)
                 actions.append((teaching_action,) + result)
 

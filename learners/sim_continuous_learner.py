@@ -36,7 +36,7 @@ class SimContinuousLearner(BaseLearner):
         for action in self.concept.get_rl_actions():
             self.concept_action_values[action] = np.zeros(len(self.concepts))
             for idx, state in enumerate(self.concepts):
-                self.concept_action_values[action][idx] = self.concept.evaluate_concept((action,), state, idx)
+                self.concept_action_values[action][idx] = self.concept.evaluate_concept(action, state, idx)
 
     def update_state(self, example):
         if np.random.random() < self.transition_noise:
@@ -107,7 +107,7 @@ class SimContinuousLearner(BaseLearner):
             concept_id = np.random.choice(len(self.concept_belief), p=self.concept_belief)
             self.assessment_guess = self.concepts[concept_id]
 
-        curr_guess = self.concept.evaluate_concept(item, self.assessment_guess)
+        curr_guess = self.concept.evaluate_concept(item[0], self.assessment_guess)
 
         self.print("I think %s is %d" % (item[1], curr_guess))
 

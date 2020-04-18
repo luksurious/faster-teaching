@@ -46,7 +46,8 @@ def setup_arguments():
                         help="Horizon of the planning algorithm during online planning")
     parser.add_argument('--plan_online_samples', type=int, nargs='*',
                         help="Sample lens of the planning algorithm during online planning for each horizon step")
-    parser.add_argument('--plan_pre_horizon', type=int, default=9, help="Number of precomputed planned actions")
+    parser.add_argument('--plan_pre_steps', type=int, default=9, help="Number of precomputed planned actions")
+    parser.add_argument('--plan_pre_horizon', type=int, default=2, help="Depth of horizon for precomputed actions")
     parser.add_argument('--plan_pre_samples', type=int, default=10,
                         help="Number of samples per planning step for precomputed actions")
     parser.add_argument('--plan_load_actions', type=str, default=None, help="Path to file with precomputed actions")
@@ -65,6 +66,8 @@ def setup_arguments():
 
     # Task arguments
     parser.add_argument('-t', '--task', default="letter", choices=["letter", "number_game"], help="The task to learn")
+    parser.add_argument('--number_concept', default="mul7", choices=["mul7", "64-83", "mul4-1"],
+                        help="The target number game concept")
     parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
     parser.add_argument('-r', '--number_range', type=int, default=6, help="Upper bound of the number range mapping")
 
@@ -168,7 +171,7 @@ def create_teacher(args, concept, belief):
 
 def create_teaching_objects(args, number_range):
     if args.task == 'number_game':
-        concept = NumberGame()
+        concept = NumberGame(target_concept=args.number_concept)
     else:
         concept = LetterAddition(args.problem_len, number_range=number_range)
 
@@ -193,9 +196,9 @@ def setup_learner(args, concept, number_range, prior_distribution, teacher):
 
 def perform_preplanning(args, teacher):
     setup_start = time.time()
-    result = teacher.planner.perform_preplanning(args.plan_pre_horizon, args.plan_pre_samples)
+    result = teacher.planner.perform_preplanning(args.plan_pre_steps, args.plan_pre_horizon, args.plan_pre_samples)
 
-    if args.plan_pre_horizon > 0:
+    if args.plan_pre_steps > 0:
         leaves = 0
         stack = list(result['responses'].items())
         while len(stack) > 0:
@@ -314,12 +317,12 @@ def describe_arguments(args):
         print("Policy: Random actions")
         model = "Random"
         plan = "-"
-        args.plan_pre_horizon = 0
+        args.plan_pre_steps = 0
         args.plan_online_horizon = 0
     else:
         if args.plan_max_gain:
             print("Policy: Planning using maximum information gain")
-            args.plan_pre_horizon = 0
+            args.plan_pre_steps = 0
             args.plan_online_horizon = 0
 
         if args.planning_model == 'memoryless':
@@ -345,10 +348,10 @@ def describe_arguments(args):
             print("-- ignoring noise in belief updating")
             model += " (w/o noise)"
 
-        print("Precomputed actions: %d x %d" % (args.plan_pre_horizon, args.plan_pre_samples))
+        print("Precomputed actions: %d x %d x %d" % (args.plan_pre_steps, args.plan_pre_horizon, args.plan_pre_samples))
         print("Online planning: %d x %s" % (args.plan_online_horizon, args.plan_online_samples))
 
-        plan = "%d x %d pre + %d x %s" % (args.plan_pre_horizon, args.plan_pre_samples,
+        plan = "%d x %d pre + %d x %s" % (args.plan_pre_steps, args.plan_pre_samples,
                                           args.plan_online_horizon, args.plan_online_samples)
 
     if not args.single_run:
@@ -395,7 +398,7 @@ def exec_setup(args, number_range, load=False, load_file=None):
     np.random.seed(args.sim_seed)
     concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
 
-    if args.plan_pre_horizon > 0:
+    if args.plan_pre_steps > 0:
         if load_file is None:
             load_file = 'data/actions.pickle'
 

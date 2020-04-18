@@ -3,7 +3,7 @@ import random
 
 import numpy as np
 
-from actions import ACTION_COSTS_NUMBER
+from actions import ACTION_COSTS_NUMBER, ACTION_COSTS_LETTERS, ACTION_COSTS_SAMPLE
 from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
 
 
@@ -11,11 +11,11 @@ from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
 # random: half inside, half outside concept
 # assessment phase: show 5 random concepts from inside, 5 from outside, require correct answer to terminate
 # precomputed: 20 actions
-# continuous mode: H = 3, S=6+6+8, p=16 ; shouldnt it also make sure to check inside & outside samples for the planning?
-# memoryless: H = 2, S=6+8
+# continuous mode: H = 3, S=6+6+8, p=16; shouldn't it also make sure to check inside & outside samples for the planning?
 # discrete: H = 2, S=6+6, M=2
+# memoryless: H = 2, S=6+8
 class NumberGame(ConceptBase):
-    def __init__(self):
+    def __init__(self, target_concept='mul7'):
         super().__init__(ACTION_COSTS_NUMBER)
         self.range = range(1, 101)
 
@@ -25,19 +25,16 @@ class NumberGame(ConceptBase):
 
         self.concept_space, self.prior = self.generate_plausible_concepts()
 
-        # self.cur_concept = NumberGameConcept(multiples=7, multiples_mod=-1)
-        # self.cur_concept = NumberGameConcept(interval_start=64, interval_end=83)
-        self.cur_concept = NumberGameConcept(multiples=7)
+        if target_concept == 'mul4-1':
+            self.cur_concept = NumberGameConcept(multiples=4, multiples_mod=-1)
+        elif target_concept == '64-83':
+            self.cur_concept = NumberGameConcept(interval_start=64, interval_end=83)
+        elif target_concept == 'mul7':
+            self.cur_concept = NumberGameConcept(multiples=7)
+        else:
+            raise ValueError('unknown target concept %s' % target_concept)
 
         self.true_concept_idx = self.find_true_concept_idx()
-
-        self.numbers_inside, self.numbers_outside = [], []
-
-        for i in self.range:
-            if self.cur_concept.check(i):
-                self.numbers_inside.append(i)
-            else:
-                self.numbers_outside.append(i)
 
     def find_true_concept_idx(self):
         for idx, concept in enumerate(self.concept_space):
@@ -110,13 +107,13 @@ class NumberGame(ConceptBase):
         return correct, errors
 
     def sample_inside(self, number: int):
-        cor_numbers = np.random.choice(self.numbers_inside, number, replace=False)
+        cor_numbers = np.random.choice(self.cur_concept.numbers_inside, number, replace=False)
         cor_numbers = np.stack([cor_numbers, [1] * number], axis=1)
 
         return cor_numbers
 
     def sample_outside(self, number: int):
-        incor_numbers = np.random.choice(self.numbers_outside, number, replace=False)
+        incor_numbers = np.random.choice(self.cur_concept.numbers_outside, number, replace=False)
         incor_numbers = np.stack([incor_numbers, [0] * number], axis=1)
 
         return incor_numbers
@@ -129,9 +126,9 @@ class NumberGame(ConceptBase):
 
     def generate_example(self) -> ActionResult:
         if np.random.random() > self.inside_prob:
-            return np.random.choice(self.numbers_inside), True
+            return np.random.choice(self.cur_concept.numbers_inside), True
         else:
-            return np.random.choice(self.numbers_outside), False
+            return np.random.choice(self.cur_concept.numbers_outside), False
 
     def generate_question_with_feedback(self) -> ActionResult:
         return self.generate_example()
@@ -141,9 +138,9 @@ class NumberGame(ConceptBase):
 
     def evaluate_concept(self, action, concept=None, idx=None):
         if concept is None:
-            return int(action[0] in self.numbers_inside)
+            return int(action in self.cur_concept.numbers_inside)
 
-        return concept.check(action[0])
+        return int(action in concept.numbers_inside)
 
     def gen_readable_format(self, result, show_answer=True):
         if show_answer:
@@ -195,6 +192,15 @@ class NumberGameConcept(ConceptItemBase):
         self.even = even
         self.odd = odd
         self.ending = ending
+
+        self.range = range(1, 101)
+        self.numbers_inside, self.numbers_outside = [], []
+
+        for i in self.range:
+            if self.check(i):
+                self.numbers_inside.append(i)
+            else:
+                self.numbers_outside.append(i)
 
     def check(self, number: int) -> any:
         if self.odd:

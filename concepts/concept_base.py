@@ -73,7 +73,7 @@ class ConceptBase(ABC):
         return raw_result, result
 
     @abstractmethod
-    def evaluate_concept(self, action: ActionResult, concept: ConceptItemBase = None, idx: int = None):
+    def evaluate_concept(self, action: any, concept=None, idx: int = None):
         pass
 
     @abstractmethod

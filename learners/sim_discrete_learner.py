@@ -39,7 +39,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
 
     def find_stochastically(self, example):
         # TODO can be precomputed and cached
-        concepts_results = np.array([self.concept.evaluate_concept(example, c) for c in self.concept_space])
+        concepts_results = np.array([self.concept.evaluate_concept(example[0], c) for c in self.concept_space])
         consistent_concepts_filter = concepts_results == example[1]
         consistent_concepts_prob = self.prior_distribution[consistent_concepts_filter]
 
@@ -48,7 +48,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
             if memory_item[1] is None:
                 continue
 
-            concepts_results = np.array([self.concept.evaluate_concept(memory_item, self.concept_space[c])
+            concepts_results = np.array([self.concept.evaluate_concept(memory_item[0], self.concept_space[c])
                                          for c in consistent_concepts])
 
             consistent_concepts_filter = concepts_results == memory_item[1]

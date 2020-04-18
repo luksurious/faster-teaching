@@ -4,8 +4,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 
 from actions import Actions
-from concepts.concept_base import ConceptBase
-
+from concepts.concept_base import ConceptBase, ActionResult
 
 DEBUG = False
 
@@ -39,7 +38,7 @@ class BaseBelief(ABC):
         for action in self.concept.get_rl_actions():
             self.state_action_values[action] = np.zeros(len(self.hypotheses))
             for idx, state in enumerate(self.hypotheses):
-                self.state_action_values[action][idx] = self.concept.evaluate_concept((action, None), state, idx)
+                self.state_action_values[action][idx] = self.concept.evaluate_concept(action, state, idx)
 
     def reset(self):
         self.belief_state = self.belief_state_orig.copy()
@@ -76,11 +75,11 @@ class BaseBelief(ABC):
 
         return new_belief
 
-    def belief_update_formula(self, action_type, action, observation):
+    def belief_update_formula(self, action_type, action: ActionResult, observation):
         new_belief = np.zeros_like(self.belief_state)
 
         for idx, new_state in enumerate(self.hypotheses):
-            concept_val = self.concept.evaluate_concept(action, new_state, idx)
+            concept_val = self.concept.evaluate_concept(action[0], new_state, idx)
 
             p_z = self.observation_model(observation, new_state, action_type, action, concept_val)
             if p_z == 0:
