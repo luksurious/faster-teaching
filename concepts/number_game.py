@@ -19,7 +19,9 @@ class NumberGame(ConceptBase):
         super().__init__(ACTION_COSTS_NUMBER)
         self.range = range(1, 101)
 
-        self.prior_lambda = 2/3
+        # self.prior_lambda = 2/3
+        self.prior_lambda = 1/2  # Test with this lambda
+        self.erlang_sigma = 10
 
         self.inside_prob = 0.5
 
@@ -44,7 +46,9 @@ class NumberGame(ConceptBase):
         return -1
 
     def generate_plausible_concepts(self):
-        math_concepts, other_concepts = [], []
+        math_concepts, range_concepts, mod_math_concepts = [], [], []
+        range_priors = []
+
         math_concepts.append(NumberGameConcept(odd=True))
         math_concepts.append(NumberGameConcept(even=True))
         math_concepts.append(NumberGameConcept(square=True))
@@ -53,28 +57,40 @@ class NumberGame(ConceptBase):
 
         for i in range(3, 13):
             math_concepts.append(NumberGameConcept(multiples=i))
-            other_concepts.append(NumberGameConcept(multiples=i, multiples_mod=-1))
-            other_concepts.append(NumberGameConcept(multiples=i, multiples_mod=1))
+            mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=-1))
+            mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=1))
 
         for i in range(2, 11):
             math_concepts.append(NumberGameConcept(powers=i))
 
-        for i in range(10):
+        for i in range(1, 10):
             math_concepts.append(NumberGameConcept(ending=i))
 
-        for a in range(1, 100):
-            for b in range(a, 100):
-                other_concepts.append(NumberGameConcept(interval_start=a, interval_end=b))
+        for a in range(1, 101):
+            for b in range(a, 101):
+                range_concepts.append(NumberGameConcept(interval_start=a, interval_end=b))
+                range_size = (b - a + 1)
+                range_priors.append(range_size / self.erlang_sigma**2 * math.exp(-range_size/self.erlang_sigma))
 
         math_count = len(math_concepts)
-        math_prior = self.prior_lambda / math_count
-        other_count = len(other_concepts)
-        other_prior = (1-self.prior_lambda) / other_count
+        range_count = len(range_concepts)
+        mod_math_count = len(mod_math_concepts)
 
-        concepts = math_concepts + other_concepts
-        priors = [math_prior] * math_count + [other_prior] * other_count
+        math_priors = [self.prior_lambda / math_count] * math_count
 
-        return concepts, np.array(priors)
+        range_prior_share = (1-self.prior_lambda) * range_count / (range_count+mod_math_count)
+        mod_math_prior_share = (1-self.prior_lambda) * mod_math_count / (range_count+mod_math_count)
+
+        range_priors = np.array(range_priors)
+        range_priors /= np.sum(range_priors)
+
+        range_priors = np.array(range_priors) * range_prior_share
+        mod_math_priors = [mod_math_prior_share / mod_math_count] * mod_math_count
+
+        concepts = math_concepts + range_concepts + mod_math_concepts
+        priors = np.concatenate([math_priors, range_priors, mod_math_priors])
+
+        return concepts, priors
 
     def get_default_prior(self) -> iter:
         return self.prior

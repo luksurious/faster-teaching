@@ -6,7 +6,7 @@ from copy import deepcopy
 import numpy as np
 from tqdm import tqdm
 
-from actions import Actions, ACTION_COSTS_LETTERS
+from actions import Actions
 from concepts.concept_base import ConceptBase
 from learner_models.base_belief import BaseBelief
 from planners.base_planner import BasePlanner
@@ -39,7 +39,13 @@ class ForwardSearchPlanner(BasePlanner):
         self.true_concept_pos = self.concept.get_true_concept_idx()
 
     def perform_preplanning(self, preplan_len: int = 9, preplan_horizon: int = 2, preplan_samples: int = 10):
+        if preplan_len == 0:
+            return self.best_action_stack
+
         start_time = time.time()
+
+        assert preplan_horizon > 0
+        assert preplan_samples > 0
 
         progress = tqdm(total=preplan_len)
 
@@ -64,6 +70,7 @@ class ForwardSearchPlanner(BasePlanner):
         if level == 1:
             return
 
+        # TODO check error with manual execution
         result = (next_action[1], next_action[2])
         if next_action[0] == Actions.QUIZ:
             result = (next_action[1], None)
@@ -151,6 +158,8 @@ class ForwardSearchPlanner(BasePlanner):
 
         if len(actions) == 1:
             return actions[0]
+
+        assert len(actions) > 0
 
         return actions
 

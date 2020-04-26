@@ -71,16 +71,16 @@ class SimContinuousLearner(BaseLearner):
         self.print(self.concept.gen_readable_format(quiz, False))
         time.sleep(self.pause)
 
-        answers = {}
-        for result in self.concept.get_observation_space():
-            concepts_w_result = self.concept_action_values[quiz[0]] == result
-            answers[result] = np.sum(self.concept_belief[concepts_w_result])
-
-        answer_sample = np.random.choice(list(answers.keys()), p=list(answers.values()))
-
         if np.random.random() <= self.production_noise:
             # produce random answer
-            answer_sample -= np.random.choice(list(answers.keys()))
+            answer_sample = np.random.choice(self.concept.get_observation_space())
+        else:
+            answers = {}
+            for result in self.concept.get_observation_space():
+                concepts_w_result = self.concept_action_values[quiz[0]] == result
+                answers[result] = np.sum(self.concept_belief[concepts_w_result])
+
+            answer_sample = np.random.choice(list(answers.keys()), p=list(answers.values()))
 
         self.print("I think it is %d" % answer_sample)
 

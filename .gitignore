@@ -5,3 +5,4 @@ data/*.log
 .run
 .ipynb_checkpoints
 *.pdf
+/data/

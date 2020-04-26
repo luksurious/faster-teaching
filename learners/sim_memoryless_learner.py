@@ -58,9 +58,11 @@ class SimMemorylessLearner(BaseLearner):
         self.print(self.concept.gen_readable_format(quiz, False))
         time.sleep(self.pause)
 
-        response = self.self_evaluate(quiz[0])
         if np.random.random() < self.production_noise:
             response = np.random.choice(list(self.concept.get_observation_space()))  # random answer
+        else:
+            response = self.self_evaluate(quiz[0])
+
         self.print("I think it is %d" % response)
 
         return response
@@ -84,6 +86,7 @@ class SimMemorylessLearner(BaseLearner):
             # ignore change
             return
 
+        # TODO properly calculate state distances
         if self.mode == "pair":
             possible_pairs = self.generate_possible_pairs(example[1])
 

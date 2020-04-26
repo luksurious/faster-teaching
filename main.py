@@ -21,7 +21,7 @@ from learners.sim_memoryless_learner import SimMemorylessLearner
 from planners.forward_search import ForwardSearchPlanner
 from planners.max_information_gain import MaxInformationGainPlanner
 from planners.random import RandomPlanner
-from plots import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
+from output import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
     plot_single_actions, save_raw_data
 from teacher import Teacher
 
@@ -263,10 +263,13 @@ def handle_multi_run_end(args, action_history, error_history, global_time_start,
         plt.show()
     plt.clf()
 
-    plot_multi_actions(action_history, model_info, mode, finish_time)
+    action_sequences = plot_multi_actions(action_history, model_info, mode, finish_time)
     if not args.no_show:
         plt.show()
     plt.clf()
+
+    print("\nAction sequence")
+    print(action_sequences)
 
     print("\nLearning failures: %d/%d = %.2f%%" % (len(failures), args.sim_count, len(failures) / args.sim_count * 100))
     if len(failures) > 0:

@@ -34,7 +34,6 @@ class ContinuousModel(BaseBelief):
         # Prior particle
         particle2_dist = np.copy(self.prior)
 
-        # TODO paper note: if particles same, ignore
         if np.allclose(particle2_dist, particle1_dist):
             self.particle_weights[0] = 1
             return
@@ -66,7 +65,6 @@ class ContinuousModel(BaseBelief):
 
     def check_particles_valid(self):
         # check for particle depletion
-        # TODO Note: sum instead of max compared to other update
         if np.sum(self.particle_weights) < self.particle_depletion_limit:
             self.recreate_particles()
         else:
@@ -119,7 +117,6 @@ class ContinuousModel(BaseBelief):
 
             self.particle_weights[idx] = new_weight
 
-        # TODO paper note: using sum instead of max as implied in text
         self.check_particles_valid()
 
     def recreate_particles(self):
@@ -182,8 +179,9 @@ class ContinuousModel(BaseBelief):
             # TODO think about that it makes sense
             # TODO paper details
             consistent_prob = np.sum(particle[concepts_w_obs])
-            response_prob_from_consistent = (1 - self.production_noise) * consistent_prob + self.obs_noise_prob
-            response_prob_from_inconsistent = self.obs_noise_prob * (1 - consistent_prob)
+            response_prob_from_consistent = (1 - self.production_noise) * consistent_prob
+            # response_prob_from_inconsistent = self.obs_noise_prob * (1 - consistent_prob)
+            response_prob_from_inconsistent = self.obs_noise_prob
 
             prob += self.particle_weights[idx] * (response_prob_from_consistent + response_prob_from_inconsistent)
 

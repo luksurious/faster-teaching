@@ -67,9 +67,9 @@ def plot_multi_time(time_history, model_subtitle=None, mode='multi', finish_time
 
 def plot_multi_actions(action_history, model_subtitle=None, mode='multi', finish_time=''):
     max_actions = max([len(x) for x in action_history])
-    action_types_1 = np.zeros(max_actions)
-    action_types_2 = np.zeros(max_actions)
-    action_types_3 = np.zeros(max_actions)
+    action_types_1 = np.zeros(max_actions, dtype=int)
+    action_types_2 = np.zeros(max_actions, dtype=int)
+    action_types_3 = np.zeros(max_actions, dtype=int)
     for el in action_history:
         for i, v in enumerate(el):
             if v[0].value == 1:
@@ -82,12 +82,14 @@ def plot_multi_actions(action_history, model_subtitle=None, mode='multi', finish
     p1 = plt.bar(range(max_actions), action_types_1)
     p2 = plt.bar(range(max_actions), action_types_2, bottom=action_types_1)
     p3 = plt.bar(range(max_actions), action_types_3, bottom=action_types_2 + action_types_1)
-    plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Question"])
+    plt.legend((p1[0], p2[0], p3[0]), ["Example", "Quiz", "Feedback"])
 
     title = "Planned actions per time step"
     add_titles(title, model_subtitle)
 
     plt.savefig(OUTPUT + mode + "_actions_%d.png" % finish_time)
+
+    return ("Example", "Quiz", "Feedback"), [action_types_1.tolist(), action_types_2.tolist(), action_types_3.tolist()]
 
 
 def print_statistics_table(error_history, time_history, plan_duration_history):
@@ -102,16 +104,19 @@ def print_statistics_table(error_history, time_history, plan_duration_history):
     print("\nSome statistics")
     stats_arr = [
         ["Time"] + ["%.2f" % item
-                    for item in [np.mean(time_history), np.median(time_history), np.std(time_history)]],
+                    for item in [np.median(time_history), *bootstrap_ci(time_history),
+                                 np.mean(time_history), np.std(time_history)]],
 
         ["Phases"] + ["%.2f" % item
-                      for item in [np.mean(learned_history), np.median(learned_history), np.std(learned_history)]],
+                      for item in [np.median(learned_history), *bootstrap_ci(learned_history),
+                                   np.mean(learned_history), np.std(learned_history)]],
 
         ["Planning duration"] + ["%.2f" % item
-                                 for item in [np.mean(plan_duration_history), np.median(plan_duration_history),
-                                              np.std(plan_duration_history)]]
+                                 for item in [np.median(plan_duration_history), *bootstrap_ci(plan_duration_history),
+                                              np.mean(plan_duration_history), np.std(plan_duration_history)]]
+        if len(plan_duration_history) > 0 else ["Planning duration", "", "", "", "", ""]
     ]
-    print(tt.to_string(stats_arr, header=["", "Mean", "Median", "SD"], alignment="lrrr"))
+    print(tt.to_string(stats_arr, header=["", "Median", "MD CI -", "MD CI +", "Mean", "SD"], alignment="lrrrrr"))
 
     return stats_arr
 
@@ -135,3 +140,16 @@ def save_raw_data(action_history, error_history, time_history, failures, stats, 
             "plan_durations": plan_duration_history,
             "failures": failures
         }, cls=CustomEncoder))
+
+
+def bootstrap_ci(data_points, fun=np.median, alpha=0.68):
+    simulations = []
+    sample_size = len(data_points)
+    for c in range(1000):
+        itersample = np.random.choice(data_points, size=sample_size, replace=True)
+        simulations.append(fun(itersample))
+
+    lower = np.quantile(simulations, (1-alpha)/2)
+    upper = np.quantile(simulations, alpha+((1-alpha)/2))
+
+    return lower, upper
