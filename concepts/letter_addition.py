@@ -30,7 +30,7 @@ class LetterAddition(ConceptBase):
 
         self.letter_combs = list(itertools.combinations(range(problem_len), self.equation_length))
 
-        self.possible_values = set([x[0] + x[1] for x in itertools.combinations(self.numbers, 2)])
+        self.possible_values = list(set([x[0] + x[1] for x in itertools.combinations(self.numbers, 2)]))
 
         self.concept_val_cache = {}
 

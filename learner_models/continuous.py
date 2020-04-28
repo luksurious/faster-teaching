@@ -180,7 +180,6 @@ class ContinuousModel(BaseBelief):
             # TODO paper details
             consistent_prob = np.sum(particle[concepts_w_obs])
             response_prob_from_consistent = (1 - self.production_noise) * consistent_prob
-            # response_prob_from_inconsistent = self.obs_noise_prob * (1 - consistent_prob)
             response_prob_from_inconsistent = self.obs_noise_prob
 
             prob += self.particle_weights[idx] * (response_prob_from_consistent + response_prob_from_inconsistent)

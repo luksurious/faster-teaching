@@ -5,7 +5,6 @@ from actions import Actions
 import numpy as np
 
 
-# TODO check why as 4th action a quiz is chosen
 class MemorylessModel(BaseBelief):
     def __init__(self, belief_state, prior, concept: ConceptBase, trans_noise=0.15, prod_noise=0.019,
                  verbose: bool = True):
@@ -121,7 +120,9 @@ class MemorylessModel(BaseBelief):
 
     def get_observation_prob(self, action, observation):
         concepts_w_obs = self.state_action_values[action[0]] == observation
-        return np.sum(self.belief_state[concepts_w_obs])
+        cons_prob = np.sum(self.belief_state[concepts_w_obs])
+
+        return cons_prob * (1 - self.production_noise) + self.obs_noise_prob
 
     def __copy__(self):
         return MemorylessModel(self.belief_state.copy(), self.prior, self.concept, trans_noise=self.transition_noise,
