@@ -49,7 +49,9 @@ class ContinuousModel(BaseBelief):
             # update based on response
             self.update_from_response(response, result)
 
-        transition_happened = result[1] is not None and result[1] != response
+        # since the concepts are modeled as distributions, even for correct feedback actions we can use it to eliminate
+        # probability on non-matching concepts
+        transition_happened = result[1] is not None
         if transition_happened:
             # update based on content
             self.update_from_content(result)
