@@ -35,8 +35,9 @@ def setup_arguments():
                         help="Which learner model to use during planning for updating the belief")
     parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
     parser.add_argument('--actions_qe_only', action="store_true", help='Only use quizzes and examples')
-    parser.add_argument('--plan_max_gain', action="store_true", help='Plan using max information gain (only possible '
-                                                                     'with continuous model)')
+    parser.add_argument('--plan_max_gain', action="store_true",
+                        help='Plan using max information gain (only possible with continuous model)')
+    parser.add_argument('--mig_quiz_interval', type=int, default=0)
 
     # Model arguments
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
@@ -158,7 +159,8 @@ def create_teacher(args, concept, belief):
     if args.random:
         planner = RandomPlanner(concept, actions)
     elif args.plan_max_gain:
-        planner = MaxInformationGainPlanner(concept, [Actions.EXAMPLE], belief, args.verbose)
+        planner = MaxInformationGainPlanner(concept, [Actions.EXAMPLE], belief, verbose=args.verbose,
+                                            quiz_interval=args.mig_quiz_interval)
     else:
         planner = ForwardSearchPlanner(concept, actions, belief, verbose=args.verbose,
                                        plan_horizon=args.plan_online_horizon, plan_samples=args.plan_online_samples)

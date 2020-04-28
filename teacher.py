@@ -35,7 +35,7 @@ class Teacher:
         self.planner.start_teaching_phase()
 
         prev_response = None
-        for self.action_count in range(self.max_phases*self.learning_phase_len):
+        for action_count in range(self.max_phases*self.learning_phase_len):
             action_type, equation, result = self.planner.choose_action(prev_response)
 
             action_data = (equation, result)
@@ -68,7 +68,7 @@ class Teacher:
             self.action_history.append((action_type, action_data))
             self.response_history.append(response)
 
-            if (self.action_count + 1) % self.learning_phase_len == 0:
+            if (action_count + 1) % self.learning_phase_len == 0:
                 if self.assess():
                     return True
                 else:
