@@ -8,20 +8,18 @@ from learners.base_learner import BaseLearner
 
 
 class SimContinuousLearner(BaseLearner):
-    def __init__(self, concept: ConceptBase, number_range: list, prior_distribution):
+    def __init__(self, concept: ConceptBase, prior_distribution: np.ndarray):
         super().__init__(concept)
 
         self.verbose = True
         self.pause = 0
 
-        self.number_range = number_range
-
         self.prior_distribution = prior_distribution
 
         self.total_time = 0
 
-        self.transition_noise = 0.14
-        self.production_noise = 0.12
+        self.transition_noise = concept.TRANS_NOISE['continuous']
+        self.production_noise = concept.PROD_NOISE['continuous']
 
         # distribution about possibilities
         self.concept_belief = prior_distribution.copy()
@@ -29,14 +27,7 @@ class SimContinuousLearner(BaseLearner):
 
         self.assessment_guess = None
 
-        self.concept_action_values = {}
-        self.pre_calc_state_values()
-
-    def pre_calc_state_values(self):
-        for action in self.concept.get_rl_actions():
-            self.concept_action_values[action] = np.zeros(len(self.concepts))
-            for idx, state in enumerate(self.concepts):
-                self.concept_action_values[action][idx] = self.concept.evaluate_concept(action, state, idx)
+        self.concept_action_values = self.concept.state_action_values
 
     def update_state(self, example):
         if np.random.random() < self.transition_noise:
@@ -56,14 +47,14 @@ class SimContinuousLearner(BaseLearner):
 
         self.update_state(example)
 
-        self.total_time += self.concept.action_costs[Actions.EXAMPLE]
+        self.total_time += self.concept.ACTION_COSTS[Actions.EXAMPLE]
 
     def see_quiz(self, quiz):
         self.assessment_guess = None
 
         answer_sample = self.generate_answer(quiz)
 
-        self.total_time += self.concept.action_costs[Actions.QUIZ]
+        self.total_time += self.concept.ACTION_COSTS[Actions.QUIZ]
 
         return answer_sample
 
@@ -100,7 +91,7 @@ class SimContinuousLearner(BaseLearner):
         time.sleep(self.pause)
         self.update_state(question)
 
-        self.total_time += self.concept.action_costs[Actions.FEEDBACK]
+        self.total_time += self.concept.ACTION_COSTS[Actions.FEEDBACK]
 
     def answer(self, item):
         if self.assessment_guess is None:

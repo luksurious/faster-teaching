@@ -1,4 +1,3 @@
-import math
 import random
 import time
 
@@ -6,24 +5,25 @@ import numpy as np
 
 from actions import Actions
 from concepts.concept_base import ConceptBase
-from learners.base_learner import BaseLearner
+from concepts.letter_addition import LetterAddition
+from .base_learner import BaseLearner
 
 
 class SimMemorylessLearner(BaseLearner):
-    def __init__(self, concept: ConceptBase, number_range: list, prior_distribution):
+    def __init__(self, concept: ConceptBase, prior_distribution: np.ndarray):
         super().__init__(concept)
 
         self.verbose = True
         self.pause = 0
 
-        self.transition_noise = 0.15
-        self.production_noise = 0.019
+        self.transition_noise = concept.TRANS_NOISE['memoryless']
+        self.production_noise = concept.PROD_NOISE['memoryless']
 
-        self.number_range = number_range
+        self.number_range = None
+        if isinstance(concept, LetterAddition):
+            self.number_range = concept.numbers
 
         # what should it be initialized?
-        # self.letter_values = [i for i in range(self.problem_len)]
-        # np.random.shuffle(self.letter_values)
         self.concept_space = concept.get_concept_space()
         concept_space_len = len(self.concept_space)
         self.prior_distribution = prior_distribution
@@ -32,7 +32,7 @@ class SimMemorylessLearner(BaseLearner):
 
         self.total_time = 0
 
-        self.mode = "pair"
+        self.mode = "stoch"
 
     def see_example(self, example):
         self.print(self.concept.gen_readable_format(example))
@@ -45,12 +45,12 @@ class SimMemorylessLearner(BaseLearner):
         else:
             self.update_state(example)
 
-        self.total_time += self.concept.action_costs[Actions.EXAMPLE]
+        self.total_time += self.concept.ACTION_COSTS[Actions.EXAMPLE]
 
     def see_quiz(self, quiz):
         response = self.generate_answer(quiz)
 
-        self.total_time += self.concept.action_costs[Actions.QUIZ]
+        self.total_time += self.concept.ACTION_COSTS[Actions.QUIZ]
 
         return response
 
@@ -78,7 +78,7 @@ class SimMemorylessLearner(BaseLearner):
         else:
             self.print("Correct")
 
-        self.total_time += self.concept.action_costs[Actions.FEEDBACK]
+        self.total_time += self.concept.ACTION_COSTS[Actions.FEEDBACK]
         time.sleep(self.pause)
 
     def update_state(self, example):

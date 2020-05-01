@@ -3,14 +3,29 @@ import numpy as np
 import itertools
 import random
 
-from actions import Actions, ACTION_COSTS_LETTERS
+from actions import Actions
 from .concept_base import ConceptBase, ConceptItemBase
 
 
 # problem: alphabetic arithmetic
 class LetterAddition(ConceptBase):
+    ACTION_COSTS = {
+        Actions.EXAMPLE: 7.0,
+        Actions.QUIZ: 6.6,
+        Actions.FEEDBACK: 12.0
+    }
+    TRANS_NOISE = {
+        'memoryless': 0.15,
+        'discrete': 0.34,  # pretty high
+        'continuous': 0.14,
+    }
+    PROD_NOISE = {
+        'memoryless': 0.019,
+        'discrete': 0.046,
+        'continuous': 0.12,
+    }
+
     def __init__(self, problem_len: int, number_range: list = None):
-        super().__init__(ACTION_COSTS_LETTERS)
         elements = np.zeros(problem_len)
         start = ord('A')
 
@@ -39,6 +54,8 @@ class LetterAddition(ConceptBase):
             if np.all(self.all_concepts[i] == self.item_values):
                 self.true_concept_pos = i
                 break
+
+        super().__init__()
 
     def assign_numbers(self, elements, problem_len, start):
         assign_numbers = self.numbers.copy()
@@ -156,17 +173,3 @@ class LetterAddition(ConceptBase):
         prior_distribution /= np.sum(prior_distribution)
 
         return prior_distribution
-
-
-class LetterConceptItem(ConceptItemBase):
-    def __init__(self, item_values: list):
-        self.item_values = item_values
-
-    def check(self, item) -> any:
-        pass
-
-    def __eq__(self, other):
-        pass
-
-    def __str__(self):
-        pass

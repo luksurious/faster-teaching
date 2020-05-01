@@ -12,14 +12,14 @@ KEEP_IGNORED_ACTIONS = True
 
 
 class SimDiscreteLearner(SimMemorylessLearner):
-    def __init__(self, concept: ConceptBase, number_range: list, prior_distribution, memory_size: int = 2):
-        super().__init__(concept, number_range, prior_distribution)
+    def __init__(self, concept: ConceptBase, prior_distribution: np.ndarray, memory_size: int = 2):
+        super().__init__(concept, prior_distribution)
 
         self.memory_size = memory_size
         self.memory = deque(maxlen=memory_size)
 
-        self.transition_noise = 0.34  # pretty high
-        self.production_noise = 0.046
+        self.transition_noise = concept.TRANS_NOISE['discrete']
+        self.production_noise = concept.PROD_NOISE['discrete']
 
         self.mode = "stoch"
 
@@ -27,9 +27,8 @@ class SimDiscreteLearner(SimMemorylessLearner):
 
     def update_state(self, example):
         if np.random.random() < self.transition_noise:
-            # TODO should also memory be ignored?
-            self.ignored_transition = True
             # ignore change
+            self.ignored_transition = True
             return
 
         if self.mode == "pair":

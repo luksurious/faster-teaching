@@ -11,9 +11,10 @@ IGNORE_QUIZ_MEMORY = True
 
 
 class DiscreteMemoryModel(MemorylessModel):
-    def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, trans_noise=0.34, prod_noise=0.046,
-                 verbose: bool = True):
-        super().__init__(belief_state, prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
+    name = 'discrete'
+
+    def __init__(self, belief_state, prior, concept: ConceptBase, memory_size: int, verbose: bool = True):
+        super().__init__(belief_state, prior, concept, verbose=verbose)
 
         # TODO check if still happens: devolves into asking only quizzes at some point?
         self.memory_size = memory_size

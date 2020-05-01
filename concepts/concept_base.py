@@ -25,8 +25,32 @@ ConceptList = List[ConceptItemBase]
 
 
 class ConceptBase(ABC):
-    def __init__(self, action_costs: dict) -> None:
-        self.action_costs = action_costs
+    ACTION_COSTS = {
+        Actions.EXAMPLE: 1.0,
+        Actions.QUIZ: 1.0,
+        Actions.FEEDBACK: 1.0
+    }
+    TRANS_NOISE = {
+        'memoryless': 0.0,
+        'discrete': 0.0,
+        'continuous': 0.0,
+    }
+    PROD_NOISE = {
+        'memoryless': 0.0,
+        'discrete': 0.0,
+        'continuous': 0.0,
+    }
+
+    def __init__(self):
+        # pre-calculate state-action concept values
+        self.state_action_values = {}
+        self.pre_calc_state_values()
+
+    def pre_calc_state_values(self):
+        for action in self.get_rl_actions():
+            self.state_action_values[action] = np.zeros(len(self.get_concept_space()))
+            for idx, state in enumerate(self.get_concept_space()):
+                self.state_action_values[action][idx] = self.evaluate_concept(action, state, idx)
 
     @abstractmethod
     def assess(self, learner) -> (bool, float):

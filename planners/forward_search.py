@@ -193,7 +193,7 @@ class ForwardSearchPlanner(BasePlanner):
 
             for teaching_action in self.actions:
 
-                val = self.concept.action_costs[teaching_action]
+                val = self.concept.ACTION_COSTS[teaching_action]
 
                 new_node = {
                     "children": [],
@@ -267,5 +267,5 @@ class ForwardSearchPlanner(BasePlanner):
         # TODO move to concept;
         # TODO note: not defined for number game? assume same
         # cost for a leaf node to be the probability of not passing the assessment phase multiplied by 10 * min_a(r(a))
-        belief_val = (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.concept.action_costs.values())
+        belief_val = (1 - belief.get_concept_prob(self.true_concept_pos)) * 10 * min(self.concept.ACTION_COSTS.values())
         return belief_val

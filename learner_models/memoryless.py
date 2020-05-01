@@ -6,9 +6,12 @@ import numpy as np
 
 
 class MemorylessModel(BaseBelief):
-    def __init__(self, belief_state, prior, concept: ConceptBase, trans_noise=0.15, prod_noise=0.019,
-                 verbose: bool = True):
-        super().__init__(belief_state, prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
+    name = 'memoryless'
+
+    def __init__(self, belief_state, prior, concept: ConceptBase, verbose: bool = True):
+        super().__init__(belief_state, prior, concept, verbose=verbose)
+
+        self.belief_state_orig = belief_state.copy()
 
     def belief_update_formula(self, action_type, action, observation):
         """
@@ -123,6 +126,18 @@ class MemorylessModel(BaseBelief):
         cons_prob = np.sum(self.belief_state[concepts_w_obs])
 
         return cons_prob * (1 - self.production_noise) + self.obs_noise_prob
+
+    def get_concept_prob(self, index) -> float:
+        return self.belief_state[index]
+
+    def get_state(self):
+        return self.belief_state.copy()
+
+    def set_state(self, state):
+        self.belief_state = state.copy()
+
+    def reset(self):
+        self.belief_state = self.belief_state_orig.copy()
 
     def __copy__(self):
         return MemorylessModel(self.belief_state.copy(), self.prior, self.concept, trans_noise=self.transition_noise,

@@ -1,9 +1,8 @@
 import math
-import random
 
 import numpy as np
 
-from actions import ACTION_COSTS_NUMBER, ACTION_COSTS_LETTERS, ACTION_COSTS_SAMPLE
+from actions import ACTION_COSTS_SAMPLE, Actions
 from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
 
 
@@ -15,8 +14,23 @@ from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
 # discrete: H = 2, S=6+6, M=2
 # memoryless: H = 2, S=6+8
 class NumberGame(ConceptBase):
+    ACTION_COSTS = {
+        Actions.EXAMPLE: 2.4,
+        Actions.QUIZ: 2.8,
+        Actions.FEEDBACK: 4.8
+    }
+    TRANS_NOISE = {
+        'memoryless': 0.14,
+        'discrete': 0.10,
+        'continuous': 0.15,
+    }
+    PROD_NOISE = {
+        'memoryless': 0.25,
+        'discrete': 0.18,
+        'continuous': 0.21,
+    }
+
     def __init__(self, target_concept='mul7'):
-        super().__init__(ACTION_COSTS_NUMBER)
         self.range = range(1, 101)
 
         # self.prior_lambda = 2/3
@@ -37,6 +51,8 @@ class NumberGame(ConceptBase):
             raise ValueError('unknown target concept %s' % target_concept)
 
         self.true_concept_idx = self.find_true_concept_idx()
+
+        super().__init__()
 
     def find_true_concept_idx(self):
         for idx, concept in enumerate(self.concept_space):
@@ -190,6 +206,12 @@ class NumberGame(ConceptBase):
 
     def get_observation_space(self):
         return [0, 1]
+
+    def get_transition_noise(self) -> float:
+        return self.transition_noise
+
+    def get_production_noise(self) -> float:
+        return self.production_noise
 
 
 class NumberGameConcept(ConceptItemBase):

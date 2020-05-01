@@ -12,36 +12,26 @@ DEBUG = False
 class BaseBelief(ABC):
     state_action_values: Dict[Any, np.ndarray]
 
-    def __init__(self, belief_state, prior, concept: ConceptBase, trans_noise: float = 0, prod_noise: float = 0,
-                 verbose: bool = True):
+    name = ''
+
+    def __init__(self, belief_state, prior: np.ndarray, concept: ConceptBase, verbose: bool = True):
         self.belief_state = belief_state
-        self.belief_state_orig = belief_state.copy()
         self.prior = prior
         self.concept = concept
 
-        self.transition_noise = trans_noise
-        self.production_noise = prod_noise
+        self.transition_noise = concept.TRANS_NOISE[self.name]
+        self.production_noise = concept.PROD_NOISE[self.name]
         self.obs_noise_prob = self.production_noise / len(concept.get_observation_space())
-
-        self.prior_pos_len = np.count_nonzero(self.prior)
 
         self.hypotheses = concept.get_concept_space()
 
         self.verbose = verbose
 
-        # pre-calculate state-action concept values
-        # TODO duplicated as in letter addition?
-        self.state_action_values = {}
-        self.pre_calc_state_values()
+        self.state_action_values = self.concept.state_action_values
 
-    def pre_calc_state_values(self):
-        for action in self.concept.get_rl_actions():
-            self.state_action_values[action] = np.zeros(len(self.hypotheses))
-            for idx, state in enumerate(self.hypotheses):
-                self.state_action_values[action][idx] = self.concept.evaluate_concept(action, state, idx)
-
+    @abstractmethod
     def reset(self):
-        self.belief_state = self.belief_state_orig.copy()
+        pass
 
     def update_belief(self, action_type, result, response):
         if action_type == Actions.FEEDBACK:
@@ -105,14 +95,17 @@ class BaseBelief(ABC):
     def see_action(self, action_type, action):
         pass
 
+    @abstractmethod
     def get_state(self):
-        return self.belief_state.copy()
+        pass
 
+    @abstractmethod
     def set_state(self, state):
-        self.belief_state = state.copy()
+        pass
 
-    def get_concept_prob(self, index):
-        return self.belief_state[index]
+    @abstractmethod
+    def get_concept_prob(self, index) -> float:
+        pass
 
     @abstractmethod
     def get_observation_prob(self, action, observation):
@@ -123,5 +116,4 @@ class BaseBelief(ABC):
         return o
 
     def __copy__(self):
-        return BaseBelief(self.belief_state.copy(), self.prior, self.concept, trans_noise=self.transition_noise,
-                          prod_noise=self.production_noise, verbose=self.verbose)
+        return BaseBelief(self.belief_state.copy(), self.prior, self.concept, verbose=self.verbose)

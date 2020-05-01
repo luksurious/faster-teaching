@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from actions import Actions
+from concepts.concept_base import ConceptBase
 from concepts.letter_addition import LetterAddition
 from concepts.number_game import NumberGame
 from learner_models.continuous import ContinuousModel
@@ -31,13 +32,16 @@ def setup_arguments():
                                                  'simulated learners')
     # Planning mode arguments
     parser.add_argument('planning_model', type=str, default="memoryless",
-                        choices=["memoryless", "discrete", "continuous"], nargs='?',
+                        choices=["memoryless", "discrete", "continuous", "random", "mig"], nargs='?',
                         help="Which learner model to use during planning for updating the belief")
-    parser.add_argument('--random', action="store_true", help='Take random actions instead of planning')
     parser.add_argument('--actions_qe_only', action="store_true", help='Only use quizzes and examples')
-    parser.add_argument('--plan_max_gain', action="store_true",
-                        help='Plan using max information gain (only possible with continuous model)')
-    parser.add_argument('--mig_quiz_interval', type=int, default=0)
+
+    # Task arguments
+    parser.add_argument('task', default="letter", choices=["letter", "number_game"], help="The task to learn")
+    parser.add_argument('--number_concept', default="mul7", choices=["mul7", "64-83", "mul4-1"],
+                        help="The target number game concept")
+    parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
+    parser.add_argument('-r', '--number_range', type=int, default=6, help="Upper bound of the number range mapping")
 
     # Model arguments
     parser.add_argument('--plan_no_noise', action="store_true", help="Disable noisy behavior in the planning models")
@@ -65,13 +69,6 @@ def setup_arguments():
                                                                "in. None (default): use number of processors "
                                                                "available. 1: no parallelization")
 
-    # Task arguments
-    parser.add_argument('-t', '--task', default="letter", choices=["letter", "number_game"], help="The task to learn")
-    parser.add_argument('--number_concept', default="mul7", choices=["mul7", "64-83", "mul4-1"],
-                        help="The target number game concept")
-    parser.add_argument('-l', '--problem_len', type=int, default=6, help="Length of the letter addition problem")
-    parser.add_argument('-r', '--number_range', type=int, default=6, help="Upper bound of the number range mapping")
-
     # Learner arguments
     parser.add_argument('-m', '--manual', action="store_true",
                         help="Manually interact with the program instead of simulation")
@@ -93,22 +90,13 @@ def setup_arguments():
     return parser
 
 
-def create_simulated_learner(args, concept, number_range, prior_distribution):
+def create_simulated_learner(args, concept: ConceptBase, prior_distribution):
     if args.sim_model == 'memoryless':
-        learner = SimMemorylessLearner(concept, number_range, prior_distribution)
-        if args.task == 'number_game':
-            learner.production_noise = 0.14
-            learner.transition_noise = 0.25
+        learner = SimMemorylessLearner(concept, prior_distribution)
     elif args.sim_model == 'discrete':
-        learner = SimDiscreteLearner(concept, number_range, prior_distribution, args.sim_discrete_memory)
-        if args.task == 'number_game':
-            learner.production_noise = 0.10
-            learner.transition_noise = 0.18
+        learner = SimDiscreteLearner(concept, prior_distribution, args.sim_discrete_memory)
     elif args.sim_model == 'continuous':
-        learner = SimContinuousLearner(concept, number_range, prior_distribution)
-        if args.task == 'number_game':
-            learner.production_noise = 0.15
-            learner.transition_noise = 0.21
+        learner = SimContinuousLearner(concept, prior_distribution)
     else:
         raise Exception("Unknown simulation model")
 
@@ -126,20 +114,11 @@ def create_simulated_learner(args, concept, number_range, prior_distribution):
 def create_belief_model(args, prior_distribution, concept):
     if args.planning_model == 'memoryless':
         belief = MemorylessModel(prior_distribution.copy(), prior_distribution, concept, verbose=args.verbose)
-        if args.task == 'number_game':
-            belief.production_noise = 0.14
-            belief.transition_noise = 0.25
     elif args.planning_model == 'discrete':
         belief = DiscreteMemoryModel(prior_distribution.copy(), prior_distribution, concept,
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
-        if args.task == 'number_game':
-            belief.production_noise = 0.10
-            belief.transition_noise = 0.18
-    elif args.planning_model == 'continuous':
+    elif args.planning_model == 'continuous' or args.planning_model == 'mig':
         belief = ContinuousModel(prior_distribution, concept, args.particle_limit, verbose=args.verbose)
-        if args.task == 'number_game':
-            belief.production_noise = 0.15
-            belief.transition_noise = 0.21
     else:
         raise Exception("Unknown simulation model")
 
@@ -156,11 +135,10 @@ def create_teacher(args, concept, belief):
     if args.actions_qe_only:
         actions = Actions.qe_only()
 
-    if args.random:
+    if args.planning_model == "random":
         planner = RandomPlanner(concept, actions)
-    elif args.plan_max_gain:
-        planner = MaxInformationGainPlanner(concept, [Actions.EXAMPLE], belief, verbose=args.verbose,
-                                            quiz_interval=args.mig_quiz_interval)
+    elif args.planning_model == "mig":
+        planner = MaxInformationGainPlanner(concept, [Actions.EXAMPLE], belief, verbose=args.verbose,)
     else:
         planner = ForwardSearchPlanner(concept, actions, belief, verbose=args.verbose,
                                        plan_horizon=args.plan_online_horizon, plan_samples=args.plan_online_samples)
@@ -186,9 +164,9 @@ def create_teaching_objects(args, number_range):
     return concept, prior_distribution, belief, teacher
 
 
-def setup_learner(args, concept, number_range, prior_distribution, teacher):
+def setup_learner(args, concept, prior_distribution, teacher):
     if not args.manual:
-        learner = create_simulated_learner(args, concept, number_range, prior_distribution)
+        learner = create_simulated_learner(args, concept, prior_distribution)
     else:
         learner = HumanLearner(concept)
     teacher.enroll_learner(learner)
@@ -385,7 +363,7 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
 
     random.seed(args.sim_seed + i)
     np.random.seed(args.sim_seed + i)
-    learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
+    learner = setup_learner(args, concept, prior_distribution, teacher)
 
     success = False
     try:
@@ -442,7 +420,7 @@ def main():
     pre_plan_duration = teacher.planner.pre_plan_duration
 
     if args.single_run:
-        learner = setup_learner(args, concept, number_range, prior_distribution, teacher)
+        learner = setup_learner(args, concept, prior_distribution, teacher)
 
         success = teacher.teach()
         handle_single_run_end(args, global_time_start, learner, success, teacher, model_info)

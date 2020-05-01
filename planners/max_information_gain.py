@@ -9,20 +9,16 @@ from planners.base_planner import BasePlanner
 
 
 class MaxInformationGainPlanner(BasePlanner):
-    def __init__(self, concept: ConceptBase, actions: list, belief: BaseBelief, verbose: bool = False,
-                 quiz_interval: int = 0):
+    def __init__(self, concept: ConceptBase, actions: list, belief: BaseBelief, verbose: bool = False):
         super().__init__(concept, actions)
 
         assert isinstance(belief, ContinuousModel), "Max Info Gain only supports the continuous model"
 
-        self.quiz_interval = quiz_interval
         self.belief = belief
 
         self.concept_space = self.concept.get_concept_space()
 
         self.verbose = verbose
-
-        self.action_num = 0
 
     def perform_preplanning(self, preplan_len=None, preplan_horizon=None, preplan_samples=None):
         pass
@@ -39,22 +35,12 @@ class MaxInformationGainPlanner(BasePlanner):
     def choose_action(self, prev_response=None):
         start_time = time.time()
 
-        self.action_num += 1
-        if self.action_num == self.quiz_interval:
-            self.action_num = 0
+        action_data = self.find_max_gain_item(self.belief.copy())
 
-            # ask random quiz
-            items = self.concept.get_rl_actions()
-            item = items[np.random.choice(np.arange(len(items)))]
-            value = self.concept.evaluate_concept(item)
-            action_data = (Actions.QUIZ, item, value)
-        else:
-            action_data = self.find_max_gain_item(self.belief.copy())
-
-            plan_duration = time.time() - start_time
-            self.plan_duration_history.append(plan_duration)
-            if self.verbose:
-                print("// planning took %.2f" % plan_duration)
+        plan_duration = time.time() - start_time
+        self.plan_duration_history.append(plan_duration)
+        if self.verbose:
+            print("// planning took %.2f" % plan_duration)
 
         return action_data
 

@@ -7,9 +7,10 @@ import numpy as np
 
 
 class ContinuousModel(BaseBelief):
-    def __init__(self, prior, concept: ConceptBase, particle_num: int = 16, trans_noise: float = 0.14,
-                 prod_noise: float = 0.12, verbose: bool = True):
-        super().__init__([], prior, concept, trans_noise=trans_noise, prod_noise=prod_noise, verbose=verbose)
+    name = 'continuous'
+
+    def __init__(self, prior, concept: ConceptBase, particle_num: int = 16, verbose: bool = True):
+        super().__init__([], prior, concept, verbose=verbose)
 
         self.particle_num = particle_num
 
