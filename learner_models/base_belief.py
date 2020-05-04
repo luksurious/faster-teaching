@@ -117,3 +117,31 @@ class BaseBelief(ABC):
 
     def __copy__(self):
         return BaseBelief(self.belief_state.copy(), self.prior, self.concept, verbose=self.verbose)
+
+
+class DummyBelief(BaseBelief):
+    name = 'memoryless'
+
+    def update_belief(self, action_type, result, response):
+        pass
+
+    def reset(self):
+        pass
+
+    def observation_model(self, observation, new_state, action_type, action, concept_val):
+        pass
+
+    def transition_model(self, new_state, new_idx, action_type, action, concept_val):
+        pass
+
+    def get_state(self):
+        pass
+
+    def set_state(self, state):
+        pass
+
+    def get_concept_prob(self, index) -> float:
+        pass
+
+    def get_observation_prob(self, action, observation):
+        pass

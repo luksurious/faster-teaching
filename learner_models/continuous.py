@@ -206,9 +206,7 @@ class ContinuousModel(BaseBelief):
         self.action_history = []
 
     def __copy__(self):
-        new_model = ContinuousModel(self.prior, self.concept, particle_num=self.particle_num,
-                                    prod_noise=self.production_noise, trans_noise=self.transition_noise,
-                                    verbose=self.verbose)
+        new_model = ContinuousModel(self.prior, self.concept, particle_num=self.particle_num, verbose=self.verbose)
         new_model.set_state((self.particle_dists, self.particle_weights, self.action_history))
 
         return new_model

@@ -12,6 +12,7 @@ from actions import Actions
 from concepts.concept_base import ConceptBase
 from concepts.letter_addition import LetterAddition
 from concepts.number_game import NumberGame
+from learner_models.base_belief import DummyBelief
 from learner_models.continuous import ContinuousModel
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
@@ -120,6 +121,8 @@ def create_belief_model(args, prior_distribution, concept):
                                      memory_size=args.plan_discrete_memory, verbose=args.verbose)
     elif args.planning_model == 'continuous' or args.planning_model == 'mig':
         belief = ContinuousModel(prior_distribution, concept, args.particle_limit, verbose=args.verbose)
+    elif args.planning_model == 'random':
+        belief = DummyBelief([], np.zeros(1), concept)
     else:
         raise Exception("Unknown simulation model")
 
@@ -157,7 +160,8 @@ def create_teaching_objects(args, number_range):
         concept = LetterAddition(args.problem_len, number_range=number_range)
 
     prior_distribution = concept.get_default_prior()
-    assert np.sum(prior_distribution) == 1.
+    assert np.isclose(np.sum(prior_distribution), 1.), \
+        "Prior does not sum to 1, sum is {}".format(np.sum(prior_distribution))
 
     belief = create_belief_model(args, prior_distribution, concept)
     teacher = create_teacher(args, concept, belief)
@@ -219,12 +223,8 @@ def handle_single_run_end(args, global_time_start, learner, success, teacher, mo
 def handle_multi_run_end(args, action_history, error_history, global_time_start, time_history, failures,
                          response_history, plan_duration_history, pre_plan_duration, model_info):
     model = args.planning_model
-    if args.random:
-        model = 'random'
     if args.actions_qe_only:
         model += '-qe'
-    if args.plan_max_gain:
-        model += '-mig'
 
     sim_model = args.sim_model
     if args.sim_model_mode == 'pair':
@@ -296,19 +296,19 @@ def describe_arguments(args):
             print("-- ignoring noise for simulated learners")
             learner += "(w/o noise)"
 
-    print("")
-    if args.random:
+    if args.planning_model == 'random':
         print("Policy: Random actions")
         model = "Random"
         plan = "-"
         args.plan_pre_steps = 0
         args.plan_online_horizon = 0
+    elif args.planning_model == 'mig':
+        print("Policy: Planning using maximum information gain")
+        plan = "-"
+        model = 'Continuous'
+        args.plan_pre_steps = 0
+        args.plan_online_horizon = 0
     else:
-        if args.plan_max_gain:
-            print("Policy: Planning using maximum information gain")
-            args.plan_pre_steps = 0
-            args.plan_online_horizon = 0
-
         if args.planning_model == 'memoryless':
             print("Policy: Planning actions using a memoryless belief model")
             model = "Memoryless"

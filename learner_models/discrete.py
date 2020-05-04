@@ -41,7 +41,6 @@ class DiscreteMemoryModel(MemorylessModel):
 
     def __copy__(self):
         model = DiscreteMemoryModel(self.belief_state.copy(), self.prior, self.concept, memory_size=self.memory_size,
-                                    trans_noise=self.transition_noise, prod_noise=self.production_noise,
                                     verbose=self.verbose)
         model.memory = self.memory.copy()
 

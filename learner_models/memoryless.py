@@ -140,5 +140,4 @@ class MemorylessModel(BaseBelief):
         self.belief_state = self.belief_state_orig.copy()
 
     def __copy__(self):
-        return MemorylessModel(self.belief_state.copy(), self.prior, self.concept, trans_noise=self.transition_noise,
-                               prod_noise=self.production_noise, verbose=self.verbose)
+        return MemorylessModel(self.belief_state.copy(), self.prior, self.concept, verbose=self.verbose)

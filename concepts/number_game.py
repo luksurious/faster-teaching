@@ -33,8 +33,9 @@ class NumberGame(ConceptBase):
     def __init__(self, target_concept='mul7'):
         self.range = range(1, 101)
 
-        # self.prior_lambda = 2/3
-        self.prior_lambda = 1/2  # Test with this lambda
+        # self.prior_lambda = 2/3  # lambda from somwhere else
+        self.prior_lambda = 1/2  # lambda from paper 2000
+        # self.prior_lambda = 0.5555  # lambda best matching orig priors but too strange
         self.erlang_sigma = 10
 
         self.inside_prob = 0.5
@@ -71,13 +72,21 @@ class NumberGame(ConceptBase):
         math_concepts.append(NumberGameConcept(cube=True))
         math_concepts.append(NumberGameConcept(primes=True))
 
-        for i in range(3, 13):
-            math_concepts.append(NumberGameConcept(multiples=i))
-            mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=-1))
-            mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=1))
+        for i in range(3, 51):
+            # multiples of 3-12 are three times present in the orig concept space
+            # bigger multiples "only" twice
+            if i <= 12:
+                math_concepts.append(NumberGameConcept(multiples=i))
+            else:
+                mod_math_concepts.append(NumberGameConcept(multiples=i))
+
+            for mod in range(1, i):
+                # +1 creates duplicates which seems to get close to the orig concept space
+                mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=-mod))
 
         for i in range(2, 11):
             math_concepts.append(NumberGameConcept(powers=i))
+            math_concepts.append(NumberGameConcept(powers=i, powers_zero=True))
 
         for i in range(1, 10):
             math_concepts.append(NumberGameConcept(ending=i))
@@ -92,19 +101,26 @@ class NumberGame(ConceptBase):
         range_count = len(range_concepts)
         mod_math_count = len(mod_math_concepts)
 
-        math_priors = [self.prior_lambda / math_count] * math_count
+        math_priors = [self.prior_lambda / 2 / math_count] * math_count
 
-        range_prior_share = (1-self.prior_lambda) * range_count / (range_count+mod_math_count)
-        mod_math_prior_share = (1-self.prior_lambda) * mod_math_count / (range_count+mod_math_count)
+        # range_prior_share = (1-self.prior_lambda) * range_count / (range_count+mod_math_count)
+        range_prior_share = (1-self.prior_lambda)
+        # mod_math_prior_share = (1-self.prior_lambda) * mod_math_count / (range_count+mod_math_count)
 
         range_priors = np.array(range_priors)
         range_priors /= np.sum(range_priors)
 
         range_priors = np.array(range_priors) * range_prior_share
-        mod_math_priors = [mod_math_prior_share / mod_math_count] * mod_math_count
+        mod_math_priors = [self.prior_lambda / 2 / mod_math_count] * mod_math_count
+        # [mod_math_prior_share / mod_math_count] * mod_math_count
 
-        concepts = math_concepts + range_concepts + mod_math_concepts
-        priors = np.concatenate([math_priors, range_priors, mod_math_priors])
+        concepts = math_concepts + mod_math_concepts + range_concepts
+        priors = np.concatenate([math_priors, mod_math_priors, range_priors])
+        # priors /= np.sum(priors)
+
+        print("Math concepts: {:d}, mod math {:d}, range concepts: {:d}".format(
+            math_count, mod_math_count, range_count
+        ))
 
         return concepts, priors
 
@@ -218,11 +234,15 @@ class NumberGameConcept(ConceptItemBase):
     prime_numbers = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
 
     def __init__(self, odd=False, even=False, square=False, cube=False, primes=False, multiples=False, powers=False,
-                 ending=False, interval_start=False, interval_end=False, multiples_mod=False):
+                 powers_zero=False,
+                 ending=False, interval_start=False, interval_end=False,
+                 multiples_mod=False, multiples_start=0):
+        self.multiples_start = multiples_start
         self.multiples_mod = multiples_mod
         self.interval_end = interval_end
         self.interval_start = interval_start
         self.powers = powers
+        self.powers_zero = powers_zero
         self.multiples = multiples
         self.primes = primes
         self.cube = cube
@@ -276,19 +296,26 @@ class NumberGameConcept(ConceptItemBase):
         return math.sqrt(number).is_integer()
 
     def cube_check(self, number: int):
-        return (number**(1/3)).is_integer()
+        cbrt = np.cbrt(number).round(5)
+        return cbrt.is_integer() and int(cbrt)**3 == number
 
     def primes_check(self, number: int):
         return number in self.prime_numbers
 
     def multiples_check(self, number: int):
+        if self.multiples_start > 0:
+            return number % self.multiples == self.multiples_start
         return number % self.multiples == 0
 
     def multiples_mod_check(self, number: int):
-        return number % self.multiples == (self.multiples + self.multiples_mod)
+        if self.multiples_mod < 0:
+            return number % self.multiples == (self.multiples + self.multiples_mod)
+        else:
+            return number % self.multiples == self.multiples_mod
 
     def powers_check(self, number: int):
-        return (math.log(number) / math.log(self.powers)).is_integer()
+        power_of = (math.log(number) / math.log(self.powers))
+        return power_of.is_integer() and (power_of > 0 or self.powers_zero)
 
     def interval_check(self, number: int):
         return self.interval_start <= number <= self.interval_end
@@ -301,7 +328,9 @@ class NumberGameConcept(ConceptItemBase):
                 and self.interval_end == other.interval_end
                 and self.interval_start == other.interval_start
                 and self.powers == other.powers
+                and self.powers_zero == other.powers_zero
                 and self.multiples == other.multiples
+                and self.multiples_start == other.multiples_start
                 and self.primes == other.primes
                 and self.cube == other.cube
                 and self.square == other.square
@@ -321,12 +350,87 @@ class NumberGameConcept(ConceptItemBase):
         if self.primes:
             return "prime numbers"
         if self.multiples_mod:
-            return "multiples of {:d}{:d}".format(self.multiples, self.multiples_mod)
+            return "multiples of {:d} {:+d}".format(self.multiples, self.multiples_mod)
+        if self.multiples and self.multiples_start > 0:
+            return "multiples of {:d} starting at {:d}".format(self.multiples, self.multiples_start)
         if self.multiples:
             return "multiples of {:d}".format(self.multiples)
-        if self.powers:
-            return "powers of {:d}".format(self.powers)
+        if self.powers and self.powers_zero:
+            return "powers of {:d} (incl. ^0)".format(self.powers)
+        if self.powers and not self.powers_zero:
+            return "powers of {:d} (excl. ^0)".format(self.powers)
         if self.interval_start and self.interval_end:
             return "numbers between {:d}-{:d}".format(self.interval_start, self.interval_end)
         if self.ending:
             return "numbers ending in {:d}".format(self.ending)
+
+
+if __name__ == '__main__':
+    # ng = NumberGame()
+    #
+    # print(len(ng.concept_space))
+
+    import time
+    start_time = time.time()
+
+    with open('../numberHyp.txt') as f:
+        orig_hyps = f.read()
+    orig_hyps = np.array([line.split('\t') for line in orig_hyps.splitlines()], dtype=int)
+
+    with open('../prior.txt') as f:
+        orig_priors = f.read()
+    orig_priors = list(map(float, orig_priors.splitlines()))
+
+    print("orig priors sum", np.sum(orig_priors))
+
+    number_game = NumberGame()
+
+    print("Total concepts", len(number_game.concept_space))
+
+    for own_idx, own_hyp in enumerate(number_game.concept_space):
+        # if own_hyp.interval_start is False:
+        #     continue
+        # if own_hyp.multiples not in [4, 7]:# and (own_hyp.interval_start != 64 and own_hyp.interval_end != 83):
+        #     continue
+        # if own_hyp.interval_start is False or (own_hyp.interval_start != 64 and own_hyp.interval_end != 83):
+        #     continue
+        hyp_nums = np.zeros(100, dtype=int)
+
+        if len(own_hyp.numbers_inside) == 0:
+            print('###### empty concept', str(own_hyp))
+            continue
+
+        hyp_nums[np.array(own_hyp.numbers_inside)-1] = 1
+
+        found = False
+        for orig_idx, orig_hyp in enumerate(orig_hyps):
+            if np.all(orig_hyp == hyp_nums):
+                own_prior = number_game.prior[own_idx]
+                orig_prior = orig_priors[orig_idx]
+
+                orig_hyps = np.delete(orig_hyps, orig_idx, 0)
+                orig_priors = np.delete(orig_priors, orig_idx, 0)
+                found = True
+                if len(orig_hyps) % 500 == 0:
+                    print('found', str(own_hyp), "left", len(orig_hyps))
+
+                if not np.isclose(own_prior, orig_prior, atol=1e-6):  # and (orig_prior > .0066 or own_prior > 0.0001):
+                    print('Priors for {}: orig {:.7f} vs {:.7f}, delta {:.7f}'.format(
+                        str(own_hyp), orig_prior, own_prior, abs(orig_prior-own_prior)
+                    ))
+
+                break
+
+        if not found:
+            print('##### hyp not in orig', str(own_hyp))
+
+    print("Time elapsed", time.time()-start_time)
+
+    print("unmatched hyps", len(orig_hyps))
+    print("unmatched priors", orig_priors)
+    # print(orig_hyps)
+
+    with open('number_hyps_new.csv', 'w') as f:
+        f.writelines([
+            ",".join(map(str, hyp)).replace('0,', ',') + "\n" for hyp in orig_hyps.tolist()
+        ])
