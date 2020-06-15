@@ -6,13 +6,6 @@ from actions import ACTION_COSTS_SAMPLE, Actions
 from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
 
 
-# 5 teaching actions per phase
-# random: half inside, half outside concept
-# assessment phase: show 5 random concepts from inside, 5 from outside, require correct answer to terminate
-# precomputed: 20 actions
-# continuous mode: H = 3, S=6+6+8, p=16; shouldn't it also make sure to check inside & outside samples for the planning?
-# discrete: H = 2, S=6+6, M=2
-# memoryless: H = 2, S=6+8
 class NumberGame(ConceptBase):
     ACTION_COSTS = {
         Actions.EXAMPLE: 2.4,
@@ -30,17 +23,19 @@ class NumberGame(ConceptBase):
         'continuous': 0.21,
     }
 
-    def __init__(self, target_concept='mul7'):
+    def __init__(self, target_concept='mul7', space_mode='orig'):
         self.range = range(1, 101)
 
-        # self.prior_lambda = 2/3  # lambda from somwhere else
-        self.prior_lambda = 1/2  # lambda from paper 2000
-        # self.prior_lambda = 0.5555  # lambda best matching orig priors but too strange
+        # self.prior_lambda = 2/3  # lambda from some other paper
+        if space_mode == 'orig':
+            self.prior_lambda = 0.55519  # lambda best matching orig priors but too strange
+        else:
+            self.prior_lambda = 1/2  # lambda from paper 2000
         self.erlang_sigma = 10
 
         self.inside_prob = 0.5
 
-        self.concept_space, self.prior = self.generate_plausible_concepts()
+        self.concept_space, self.prior = self.generate_plausible_concepts(space_mode)
 
         if target_concept == 'mul4-1':
             self.cur_concept = NumberGameConcept(multiples=4, multiples_mod=-1)
@@ -62,7 +57,7 @@ class NumberGame(ConceptBase):
 
         return -1
 
-    def generate_plausible_concepts(self):
+    def generate_plausible_concepts(self, space_mode='default'):
         math_concepts, range_concepts, mod_math_concepts = [], [], []
         range_priors = []
 
@@ -77,11 +72,15 @@ class NumberGame(ConceptBase):
             # bigger multiples "only" twice
             if i <= 12:
                 math_concepts.append(NumberGameConcept(multiples=i))
+                if space_mode == 'orig':
+                    mod_math_concepts.append(NumberGameConcept(multiples=i))
+                    mod_math_concepts.append(NumberGameConcept(multiples=i))
             else:
                 mod_math_concepts.append(NumberGameConcept(multiples=i))
+                if space_mode == 'orig':
+                    mod_math_concepts.append(NumberGameConcept(multiples=i))
 
             for mod in range(1, i):
-                # +1 creates duplicates which seems to get close to the orig concept space
                 mod_math_concepts.append(NumberGameConcept(multiples=i, multiples_mod=-mod))
 
         for i in range(2, 11):
@@ -222,12 +221,6 @@ class NumberGame(ConceptBase):
 
     def get_observation_space(self):
         return [0, 1]
-
-    def get_transition_noise(self) -> float:
-        return self.transition_noise
-
-    def get_production_noise(self) -> float:
-        return self.production_noise
 
 
 class NumberGameConcept(ConceptItemBase):
@@ -392,7 +385,7 @@ if __name__ == '__main__':
         #     continue
         # if own_hyp.multiples not in [4, 7]:# and (own_hyp.interval_start != 64 and own_hyp.interval_end != 83):
         #     continue
-        # if own_hyp.interval_start is False or (own_hyp.interval_start != 64 and own_hyp.interval_end != 83):
+        # if own_hyp.interval_start is False or (own_hyp.interval_start != 1 and own_hyp.interval_end != 100):
         #     continue
         hyp_nums = np.zeros(100, dtype=int)
 
@@ -414,7 +407,7 @@ if __name__ == '__main__':
                 if len(orig_hyps) % 500 == 0:
                     print('found', str(own_hyp), "left", len(orig_hyps))
 
-                if not np.isclose(own_prior, orig_prior, atol=1e-6):  # and (orig_prior > .0066 or own_prior > 0.0001):
+                if not np.isclose(own_prior, orig_prior, atol=1e-8):  # and (orig_prior > .0066 or own_prior > 0.0001):
                     print('Priors for {}: orig {:.7f} vs {:.7f}, delta {:.7f}'.format(
                         str(own_hyp), orig_prior, own_prior, abs(orig_prior-own_prior)
                     ))
@@ -430,7 +423,7 @@ if __name__ == '__main__':
     print("unmatched priors", orig_priors)
     # print(orig_hyps)
 
-    with open('number_hyps_new.csv', 'w') as f:
-        f.writelines([
-            ",".join(map(str, hyp)).replace('0,', ',') + "\n" for hyp in orig_hyps.tolist()
-        ])
+    # with open('number_hyps_new.csv', 'w') as f:
+    #     f.writelines([
+    #         ",".join(map(str, hyp)).replace('0,', ',') + "\n" for hyp in orig_hyps.tolist()
+    #     ])
