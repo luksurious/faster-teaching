@@ -93,8 +93,10 @@ def setup_arguments():
 def create_simulated_learner(args, concept: ConceptBase, prior_distribution):
     if args.sim_model == 'memoryless':
         learner = SimMemorylessLearner(concept, prior_distribution)
+        learner.mode = args.sim_model_mode
     elif args.sim_model == 'discrete':
         learner = SimDiscreteLearner(concept, prior_distribution, args.sim_discrete_memory)
+        learner.mode = args.sim_model_mode
     elif args.sim_model == 'continuous':
         learner = SimContinuousLearner(concept, prior_distribution)
     else:
@@ -102,7 +104,6 @@ def create_simulated_learner(args, concept: ConceptBase, prior_distribution):
 
     learner.pause = args.sim_pause
     learner.verbose = args.verbose
-    learner.mode = args.sim_model_mode
 
     if args.sim_no_noise:
         learner.production_noise = 0
