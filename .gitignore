@@ -6,3 +6,4 @@ data/*.log
 .ipynb_checkpoints
 *.pdf
 /data/
+figures

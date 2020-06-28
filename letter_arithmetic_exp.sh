@@ -21,19 +21,19 @@ python -u main.py $COMMON_ARGS --sim_model continuous --plan_online_samples 4 3 
 
 
 # Random planning
-python -u main.py $COMMON_ARGS --sim_model memoryless --random -- continuous > "data/letter_random-mless.log"
-python -u main.py $COMMON_ARGS --sim_model discrete --random -- continuous > "data/letter_random-discrete.log"
-python -u main.py $COMMON_ARGS --sim_model continuous --random -- continuous > "data/letter_random-continuous.log"
+python -u main.py $COMMON_ARGS --sim_model memoryless -- random letter > "data/letter_random-mless.log"
+python -u main.py $COMMON_ARGS --sim_model discrete -- random letter > "data/letter_random-discrete.log"
+python -u main.py $COMMON_ARGS --sim_model continuous -- random letter > "data/letter_random-continuous.log"
 
 
 # Random QE planning
-python -u main.py $COMMON_ARGS --sim_model memoryless --random --actions_qe_only -- continuous > "data/letter_random_qe-mless.log"
-python -u main.py $COMMON_ARGS --sim_model discrete --random --actions_qe_only -- continuous > "data/letter_random_qe-discrete.log"
-python -u main.py $COMMON_ARGS --sim_model continuous --random --actions_qe_only -- continuous > "data/letter_random_qe-continuous.log"
+python -u main.py $COMMON_ARGS --sim_model memoryless --actions_qe_only -- random letter > "data/letter_random_qe-mless.log"
+python -u main.py $COMMON_ARGS --sim_model discrete --actions_qe_only -- random letter > "data/letter_random_qe-discrete.log"
+python -u main.py $COMMON_ARGS --sim_model continuous --actions_qe_only -- random letter > "data/letter_random_qe-continuous.log"
 
 
 # MIG planning
-python -u main.py $COMMON_ARGS --sim_model memoryless --plan_max_gain -- continuous > "data/letter_mig-mless.log"
-python -u main.py $COMMON_ARGS --sim_model discrete --plan_max_gain -- continuous > "data/letter_mig-discrete.log"
-python -u main.py $COMMON_ARGS --sim_model continuous --plan_max_gain -- continuous > "data/letter_mig-continuous.log"
+python -u main.py $COMMON_ARGS --sim_model memoryless -- mig letter > "data/letter_mig-mless.log"
+python -u main.py $COMMON_ARGS --sim_model discrete -- mig letter > "data/letter_mig-discrete.log"
+python -u main.py $COMMON_ARGS --sim_model continuous -- mig letter > "data/letter_mig-continuous.log"
 
