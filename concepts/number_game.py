@@ -4,6 +4,7 @@ import numpy as np
 
 from actions import ACTION_COSTS_SAMPLE, Actions
 from concepts.concept_base import ConceptBase, ActionResult, ConceptItemBase
+from random_ng import rand_ng
 
 
 class NumberGame(ConceptBase):
@@ -136,7 +137,7 @@ class NumberGame(ConceptBase):
 
         questions = np.concatenate([cor_numbers, incor_numbers])
 
-        np.random.shuffle(questions)
+        rand_ng.rg.shuffle(questions)
 
         for number, inside in questions:
             curr_guess = learner.answer((number, number))
@@ -154,13 +155,13 @@ class NumberGame(ConceptBase):
         return correct, errors
 
     def sample_inside(self, number: int):
-        cor_numbers = np.random.choice(self.cur_concept.numbers_inside, number, replace=False)
+        cor_numbers = rand_ng.rg.choice(self.cur_concept.numbers_inside, number, replace=False)
         cor_numbers = np.stack([cor_numbers, [1] * number], axis=1)
 
         return cor_numbers
 
     def sample_outside(self, number: int):
-        incor_numbers = np.random.choice(self.cur_concept.numbers_outside, number, replace=False)
+        incor_numbers = rand_ng.rg.choice(self.cur_concept.numbers_outside, number, replace=False)
         incor_numbers = np.stack([incor_numbers, [0] * number], axis=1)
 
         return incor_numbers
@@ -172,10 +173,10 @@ class NumberGame(ConceptBase):
         return self.concept_space
 
     def generate_example(self) -> ActionResult:
-        if np.random.random() > self.inside_prob:
-            return np.random.choice(self.cur_concept.numbers_inside), True
+        if rand_ng.rg.random() > self.inside_prob:
+            return rand_ng.rg.choice(self.cur_concept.numbers_inside), True
         else:
-            return np.random.choice(self.cur_concept.numbers_outside), False
+            return rand_ng.rg.choice(self.cur_concept.numbers_outside), False
 
     def generate_question_with_feedback(self) -> ActionResult:
         return self.generate_example()

@@ -1,16 +1,14 @@
-import random
-
 import numpy as np
 
 from actions import Actions
 from concepts.letter_addition import LetterAddition
 from learner_models.discrete import DiscreteMemoryModel
 from learner_models.memoryless import MemorylessModel
+from random_ng import rand_ng
 
 
 def test_belief_trivial():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(2)
     assert np.all(concept.get_true_concepts() == [0, 1])
@@ -27,8 +25,7 @@ def test_belief_trivial():
 
 
 def test_belief_three_example():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -45,8 +42,7 @@ def test_belief_three_example():
                              expected=[0., 0.5, 0., 0., 0.5, 0.])
 
 def test_belief_three_example_2iter():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -73,8 +69,7 @@ def test_belief_three_example_2iter():
 
 
 def test_belief_three_quiz_correct_with_uniform_prior():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -91,8 +86,7 @@ def test_belief_three_quiz_correct_with_uniform_prior():
 
 
 def test_belief_three_question_correct():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -110,8 +104,7 @@ def test_belief_three_question_correct():
 
 
 def test_belief_three_question_incorrect():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -129,8 +122,7 @@ def test_belief_three_question_incorrect():
 
 
 def test_belief_three_quiz_false_with_uniform_prior():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -147,8 +139,7 @@ def test_belief_three_quiz_false_with_uniform_prior():
 
 
 def test_belief_three_quiz_invalid():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -166,8 +157,7 @@ def test_belief_three_quiz_invalid():
 
 
 def test_belief_three_example_quiz_correct():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -192,8 +182,7 @@ def test_belief_three_example_quiz_correct():
 
 
 def test_belief_three_example_quiz_inconsistent():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 
@@ -239,8 +228,7 @@ def create_test_belief_memoryless(concept, cur_belief=None):
 
 
 def test_belief_three_example_discrete():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(3)
 

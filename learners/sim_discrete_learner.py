@@ -5,7 +5,7 @@ from collections import deque
 
 from concepts.concept_base import ConceptBase
 from learners.sim_memoryless_learner import SimMemorylessLearner
-
+from random_ng import rand_ng
 
 IGNORE_QUIZ_MEMORY = True
 KEEP_IGNORED_ACTIONS = True
@@ -26,7 +26,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
         self.ignored_transition = False
 
     def update_state(self, example):
-        if np.random.random() < self.transition_noise:
+        if rand_ng.rg.random() < self.transition_noise:
             # ignore change
             self.ignored_transition = True
             return
@@ -59,7 +59,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
 
         assert len(consistent_concepts) > 0, "invalid memory/action combination encountered, no matching concept found"
 
-        new_belief_idx = np.random.choice(consistent_concepts, p=consistent_concepts_prob)
+        new_belief_idx = rand_ng.rg.choice(consistent_concepts, p=consistent_concepts_prob)
         self.concept_belief = self.concept_space[new_belief_idx]
 
     def find_match_by_pair(self, example):

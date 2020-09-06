@@ -6,6 +6,7 @@ from concepts.concept_base import ConceptBase
 from learner_models.base_belief import BaseBelief
 from learner_models.continuous import ContinuousModel
 from planners.base_planner import BasePlanner
+from random_ng import rand_ng
 
 
 class MaxInformationGainPlanner(BasePlanner):
@@ -72,7 +73,7 @@ class MaxInformationGainPlanner(BasePlanner):
         gains = np.array(gains)
         max_idxs = np.flatnonzero(gains.max() == gains)
 
-        return actions[np.random.choice(max_idxs)]
+        return actions[rand_ng.rg.choice(max_idxs)]
 
     def calc_information_gain(self, belief: ContinuousModel, result, teaching_action, entropy_before):
         gain = 0

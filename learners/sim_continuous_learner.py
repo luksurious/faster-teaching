@@ -5,6 +5,7 @@ import numpy as np
 from actions import Actions
 from concepts.concept_base import ConceptBase
 from learners.base_learner import BaseLearner
+from random_ng import rand_ng
 
 
 class SimContinuousLearner(BaseLearner):
@@ -30,7 +31,7 @@ class SimContinuousLearner(BaseLearner):
         self.concept_action_values = self.concept.state_action_values
 
     def update_state(self, example):
-        if np.random.random() < self.transition_noise:
+        if rand_ng.rg.random() < self.transition_noise:
             # ignore change
             return
 
@@ -62,16 +63,16 @@ class SimContinuousLearner(BaseLearner):
         self.print(self.concept.gen_readable_format(quiz, False))
         time.sleep(self.pause)
 
-        if np.random.random() <= self.production_noise:
+        if rand_ng.rg.random() <= self.production_noise:
             # produce random answer
-            answer_sample = np.random.choice(self.concept.get_observation_space())
+            answer_sample = rand_ng.rg.choice(self.concept.get_observation_space())
         else:
             answers = {}
             for result in self.concept.get_observation_space():
                 concepts_w_result = self.concept_action_values[quiz[0]] == result
                 answers[result] = np.sum(self.concept_belief[concepts_w_result])
 
-            answer_sample = np.random.choice(list(answers.keys()), p=list(answers.values()))
+            answer_sample = rand_ng.rg.choice(list(answers.keys()), p=list(answers.values()))
 
         self.print("I think it is %d" % answer_sample)
 
@@ -95,7 +96,7 @@ class SimContinuousLearner(BaseLearner):
 
     def answer(self, item):
         if self.assessment_guess is None:
-            concept_id = np.random.choice(len(self.concept_belief), p=self.concept_belief)
+            concept_id = rand_ng.rg.choice(len(self.concept_belief), p=self.concept_belief)
             self.assessment_guess = self.concepts[concept_id]
 
         curr_guess = self.concept.evaluate_concept(item[0], self.assessment_guess)

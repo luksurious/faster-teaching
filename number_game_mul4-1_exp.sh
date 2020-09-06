@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Ensure target folder of log files exists
+mkdir -p data
+
 # Memoryless planning
 python -u main.py --number_concept mul4-1 --sim_model memoryless --plan_pre_steps 20 --plan_pre_horizon 2 --teaching_phase_actions 5 --plan_online_horizon 2 --plan_online_samples 6 8 -- memoryless number_game > "data/ng_mul4-1_mless-mless.log"
 python -u main.py --number_concept mul4-1 --sim_model discrete --plan_pre_steps 20 --plan_pre_horizon 2 --teaching_phase_actions 5 --plan_online_horizon 2 --plan_online_samples 6 8 --plan_load_actions data/actions.pickle -- memoryless number_game > "data/ng_mul4-1_mless-discrete.log"

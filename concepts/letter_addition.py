@@ -1,9 +1,8 @@
-# TODO: use NP for random values?
 import numpy as np
 import itertools
-import random
 
 from actions import Actions
+from random_ng import rand_ng
 from .concept_base import ConceptBase, ConceptItemBase
 
 
@@ -60,14 +59,14 @@ class LetterAddition(ConceptBase):
     def assign_numbers(self, elements, problem_len, start):
         assign_numbers = self.numbers.copy()
         for i in range(problem_len):
-            number = random.sample(assign_numbers, 1)[0]
+            number = rand_ng.rg.choice(assign_numbers)
             elements[i] = number
             assign_numbers.remove(number)
 
             self.letters.append(chr(start + i))
 
     def generate_equation(self, length: int = 2):
-        chars = random.sample(range(len(self.letters)), length)
+        chars = rand_ng.rg.choice(range(len(self.letters)), length, replace=False)
         # if only using addition, order does not matter, so we can reduce the possibilities
         chars = sorted(chars)
 

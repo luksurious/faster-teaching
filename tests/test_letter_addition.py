@@ -1,12 +1,11 @@
-import random
 import numpy as np
 
 from concepts.letter_addition import LetterAddition
+from random_ng import rand_ng
 
 
 def test_class_creation():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(6)
 
@@ -17,8 +16,7 @@ def test_class_creation():
 
 
 def test_generate_equation():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(6)
 
@@ -29,8 +27,7 @@ def test_generate_equation():
 
 
 def test_evaluate_equation():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(6)
 
@@ -41,8 +38,7 @@ def test_evaluate_equation():
 
 
 def test_readable_format():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     concept = LetterAddition(6)
 

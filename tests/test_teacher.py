@@ -1,15 +1,14 @@
-import random
 import numpy as np
 
 from concepts.letter_addition import LetterAddition
 from learner_models.continuous import ContinuousModel
 from learner_models.memoryless import MemorylessModel
+from random_ng import rand_ng
 from teacher import Teacher
 
 
 def test_class_creation():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
     concept = LetterAddition(6)
     teacher = Teacher(concept)
 
@@ -18,9 +17,7 @@ def test_class_creation():
 
 def test_precompute():
     # profiling with 3 levels: 3:28m
-
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
     concept = LetterAddition(6)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
     teacher = Teacher(concept)
@@ -59,8 +56,7 @@ def test_precompute():
 
 
 def test_planning2():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
     concept = LetterAddition(6)
     # Expected letters: {'A': 6, 'B': 3, 'C': 4, 'D': 0, 'E': 2, 'F': 5}
 

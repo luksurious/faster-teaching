@@ -1,4 +1,3 @@
-import random
 import time
 
 from copy import deepcopy
@@ -10,6 +9,7 @@ from actions import Actions
 from concepts.concept_base import ConceptBase
 from learner_models.base_belief import BaseBelief
 from planners.base_planner import BasePlanner
+from random_ng import rand_ng
 
 
 class ForwardSearchPlanner(BasePlanner):
@@ -150,7 +150,7 @@ class ForwardSearchPlanner(BasePlanner):
             min_indices = np.flatnonzero(parent["costs"] == parent["costs"].min())
             candidates = [parent["children"][i] for i in min_indices]
 
-            next_action_tree = np.random.choice(candidates, 1)[0]
+            next_action_tree = rand_ng.rg.choice(candidates)
 
             actions.append((next_action_tree["action"], next_action_tree["item"][0], next_action_tree["item"][1]))
             parent = next_action_tree
@@ -255,7 +255,8 @@ class ForwardSearchPlanner(BasePlanner):
     def sample_planning_items(self, sample_lens):
         combinations = self.concept.get_rl_actions()
         if sample_lens:
-            sample_indices = random.sample(list(range(len(combinations))), k=sample_lens[0])
+            sample_indices = rand_ng.rg.choice(list(range(len(combinations))), sample_lens[0],
+                                                            replace=False)
 
             samples = [combinations[i] for i in sample_indices]
         else:

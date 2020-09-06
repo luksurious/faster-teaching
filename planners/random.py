@@ -1,7 +1,8 @@
-import random
+import numpy as np
 
 from concepts.concept_base import ConceptBase
 from planners.base_planner import BasePlanner
+from random_ng import rand_ng
 
 
 class RandomPlanner(BasePlanner):
@@ -12,7 +13,7 @@ class RandomPlanner(BasePlanner):
 
     def choose_action(self, prev_response=None):
         # random strategy
-        current_type = random.sample(self.actions, 1)[0]
+        current_type = rand_ng.rg.choice(self.actions)
 
         equation, result = self.concept.teaching_action(current_type)
         while equation in self.shown_concepts:

@@ -1,4 +1,3 @@
-import random
 import time
 
 import numpy as np
@@ -6,6 +5,7 @@ import numpy as np
 from actions import Actions
 from concepts.concept_base import ConceptBase
 from concepts.letter_addition import LetterAddition
+from random_ng import rand_ng
 from .base_learner import BaseLearner
 
 
@@ -28,7 +28,8 @@ class SimMemorylessLearner(BaseLearner):
         concept_space_len = len(self.concept_space)
         self.prior_distribution = prior_distribution
 
-        self.concept_belief = self.concept_space[np.random.choice(range(concept_space_len), p=self.prior_distribution)]
+        self.concept_belief = self.concept_space[rand_ng.rg.choice(range(concept_space_len),
+                                                                                p=self.prior_distribution)]
 
         self.total_time = 0
 
@@ -58,8 +59,8 @@ class SimMemorylessLearner(BaseLearner):
         self.print(self.concept.gen_readable_format(quiz, False))
         time.sleep(self.pause)
 
-        if np.random.random() < self.production_noise:
-            response = np.random.choice(list(self.concept.get_observation_space()))  # random answer
+        if rand_ng.rg.random() < self.production_noise:
+            response = rand_ng.rg.choice(list(self.concept.get_observation_space()))  # random answer
         else:
             response = self.self_evaluate(quiz[0])
 
@@ -82,7 +83,7 @@ class SimMemorylessLearner(BaseLearner):
         time.sleep(self.pause)
 
     def update_state(self, example):
-        if np.random.random() < self.transition_noise:
+        if rand_ng.rg.random() < self.transition_noise:
             # ignore change
             return
 
@@ -91,7 +92,7 @@ class SimMemorylessLearner(BaseLearner):
             possible_pairs = self.generate_possible_pairs(example[1])
 
             # TODO: prefer options with a match of current belief? i.e. least changes
-            pair = random.choice(possible_pairs)
+            pair = rand_ng.rg.choice(possible_pairs)
 
             self.update_values_with_pair(example[0], pair)
 
@@ -106,7 +107,7 @@ class SimMemorylessLearner(BaseLearner):
             consistent_concepts_prob = self.prior_distribution[consistent_concepts_filter]
             consistent_concepts_prob /= np.sum(consistent_concepts_prob)
 
-            new_belief_idx = np.random.choice(consistent_concepts, p=consistent_concepts_prob)
+            new_belief_idx = rand_ng.rg.choice(consistent_concepts, p=consistent_concepts_prob)
             self.concept_belief = self.concept_space[new_belief_idx]
 
     def update_values_with_pair(self, letters, pair):
@@ -135,7 +136,7 @@ class SimMemorylessLearner(BaseLearner):
     def fill_empty_mappings(self):
         num_reassign, refill_idx = self.get_idx_val_to_fill()
 
-        num_reassign = np.random.choice(num_reassign, len(refill_idx), replace=False).tolist()
+        num_reassign = rand_ng.rg.choice(num_reassign, len(refill_idx), replace=False).tolist()
         for i in refill_idx:
             if self.concept_belief[i] == -1:
                 self.concept_belief[i] = num_reassign.pop(0)

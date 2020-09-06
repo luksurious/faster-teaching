@@ -3,5 +3,5 @@ termtables
 pandas
 seaborn
 matplotlib
-numpy
+numpy>=1.17.0
 pytest

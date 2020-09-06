@@ -1,5 +1,6 @@
 import json
 import time
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,8 +9,10 @@ import seaborn as sns
 import termtables as tt
 
 from json_encoder import CustomEncoder
+from random_ng import rand_ng
 
 OUTPUT = "data/"
+Path(OUTPUT).mkdir(exist_ok=True)
 
 
 def plot_single_actions(action_history, model_subtitle=None):
@@ -146,7 +149,7 @@ def bootstrap_ci(data_points, fun=np.median, alpha=0.68):
     simulations = []
     sample_size = len(data_points)
     for c in range(1000):
-        itersample = np.random.choice(data_points, size=sample_size, replace=True)
+        itersample = rand_ng.rg.choice(data_points, size=sample_size, replace=True)
         simulations.append(fun(itersample))
 
     lower = np.quantile(simulations, (1-alpha)/2)

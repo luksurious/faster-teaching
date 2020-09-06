@@ -1,5 +1,4 @@
 import pickle
-import random
 import argparse
 import time
 from multiprocessing import Pool
@@ -25,6 +24,7 @@ from planners.max_information_gain import MaxInformationGainPlanner
 from planners.random import RandomPlanner
 from output import print_statistics_table, plot_single_errors, plot_multi_actions, plot_multi_errors, plot_multi_time, \
     plot_single_actions, save_raw_data
+from random_ng import rand_ng
 from teacher import Teacher
 
 
@@ -362,8 +362,7 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
         assert teacher is not None
         teacher.reset()
 
-    random.seed(args.sim_seed + i)
-    np.random.seed(args.sim_seed + i)
+    rand_ng.seed(args.sim_seed + i)
     learner = setup_learner(args, concept, prior_distribution, teacher)
 
     success = False
@@ -378,8 +377,7 @@ def run_trial(i, args, number_range, setup=True, concept=None, prior_distributio
 
 
 def exec_setup(args, number_range, load=False, load_file=None):
-    random.seed(args.sim_seed)
-    np.random.seed(args.sim_seed)
+    rand_ng.seed(args.sim_seed)
     concept, prior_distribution, belief, teacher = create_teaching_objects(args, number_range)
 
     if args.plan_pre_steps > 0:

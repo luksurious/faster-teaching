@@ -1,13 +1,12 @@
-import random
 import numpy as np
 
 from concepts.letter_addition import LetterAddition
 from learners.sim_discrete_learner import SimDiscreteLearner
+from random_ng import rand_ng
 
 
 def test_3step_example():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     number_range = list(range(6))
     concept = LetterAddition(6, number_range)
@@ -30,8 +29,7 @@ def test_3step_example():
 
 
 def test_readjustment_needed():
-    random.seed(123)
-    np.random.seed(123)
+    rand_ng.seed(123)
 
     number_range = list(range(7))
     concept = LetterAddition(6, number_range)
