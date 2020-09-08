@@ -72,7 +72,7 @@ usage: main.py [-h|--help]
 
 ```
 
-Experiments from the paper are listed in the varios `*.sh` shell scripts.
+Experiments from the paper are listed in the various `*.sh` shell scripts.
 
 
 

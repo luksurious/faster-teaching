@@ -155,7 +155,8 @@ def create_teacher(args, concept, belief):
 
 def create_teaching_objects(args, number_range):
     if args.task == 'number_game':
-        concept = NumberGame(target_concept=args.number_concept)
+        # Space mode can be set to 'orig' to use exactly the same settings as in the original paper
+        concept = NumberGame(target_concept=args.number_concept, space_mode='default')
     else:
         concept = LetterAddition(args.problem_len, number_range=number_range)
 

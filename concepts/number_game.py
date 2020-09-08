@@ -24,7 +24,7 @@ class NumberGame(ConceptBase):
         'continuous': 0.21,
     }
 
-    def __init__(self, target_concept='mul7', space_mode='orig'):
+    def __init__(self, target_concept='mul7', space_mode='default'):
         self.range = range(1, 101)
 
         # self.prior_lambda = 2/3  # lambda from some other paper
@@ -118,9 +118,9 @@ class NumberGame(ConceptBase):
         priors = np.concatenate([math_priors, mod_math_priors, range_priors])
         # priors /= np.sum(priors)
 
-        print("Math concepts: {:d}, mod math {:d}, range concepts: {:d}".format(
-            math_count, mod_math_count, range_count
-        ))
+        # print("Math concepts: {:d}, mod math {:d}, range concepts: {:d}".format(
+        #     math_count, mod_math_count, range_count
+        # ))
 
         return concepts, priors
 
