@@ -70,7 +70,6 @@ class ForwardSearchPlanner(BasePlanner):
         if level == 1:
             return
 
-        # TODO check error with manual execution
         result = (next_action[1], next_action[2])
         if next_action[0] == Actions.QUIZ:
             result = (next_action[1], None)

@@ -87,11 +87,11 @@ class SimMemorylessLearner(BaseLearner):
             # ignore change
             return
 
-        # TODO properly calculate state distances
         if self.mode == "pair":
+            # TODO improve: properly calculate state distances
             possible_pairs = self.generate_possible_pairs(example[1])
 
-            # TODO: prefer options with a match of current belief? i.e. least changes
+            # TODO improve: prefer options with a match of current belief? i.e. least changes
             pair = rand_ng.rg.choice(possible_pairs)
 
             self.update_values_with_pair(example[0], pair)

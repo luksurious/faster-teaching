@@ -50,7 +50,7 @@ class BaseBelief(ABC):
         return new_belief
 
     def assert_belief_is_valid(self, action_type, new_belief, response, result):
-        # TODO does it make sense to reset the belief like this?
+        # TODO Note: Additional belief resetting
         if np.max(new_belief) == 0:
             # quiz response inconsistent with previous state, calc only based on quiz now
             if DEBUG:

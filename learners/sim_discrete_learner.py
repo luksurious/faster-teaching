@@ -37,7 +37,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
             self.find_stochastically(example)
 
     def find_stochastically(self, example):
-        # TODO can be precomputed and cached
+        # TODO optimization: can be precomputed and cached
         concepts_results = np.array([self.concept.evaluate_concept(example[0], c) for c in self.concept_space])
         consistent_concepts_filter = concepts_results == example[1]
         consistent_concepts_prob = self.prior_distribution[consistent_concepts_filter]
@@ -70,7 +70,7 @@ class SimDiscreteLearner(SimMemorylessLearner):
             # starting concept was incorrect
             # reset values
             original_values = self.concept_belief.copy()
-            # TODO or would it be better if the numbers were reset one by one?
+            # TODO improve
             self.concept_belief = [-1] * len(original_values)
             found_match = self.find_match_with_memory(example, possible_pairs)
 

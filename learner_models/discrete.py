@@ -6,7 +6,7 @@ from actions import Actions
 
 import numpy as np
 
-# TODO Paper note
+# TODO Note: Clarification on memory usage
 IGNORE_QUIZ_MEMORY = True
 
 
@@ -72,7 +72,7 @@ class DiscreteMemoryModel(MemorylessModel):
         p_s = 0
 
         # only allow transition if memory matches new state
-        # TODO not sure if correct
+        # TODO verify
         if concept_val == action[1] and self.matches_memory(new_state):
             p_s = self.calculate_ps(action, new_idx)
 

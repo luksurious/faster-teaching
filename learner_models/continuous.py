@@ -131,8 +131,7 @@ class ContinuousModel(BaseBelief):
         self.particle_weights.append(particle1_weight)
 
         # particle 2: consistent with observed data
-        # TODO optimization: keep track of history particle instead of recalculating it; however, then history particle
-        #  would be part of state
+        # TODO optimization: keep track of history particle instead of recalculating it
         particle2_dist = np.copy(self.prior)
         particle2_weight = 0.5
 
@@ -158,7 +157,6 @@ class ContinuousModel(BaseBelief):
 
         concept_prob_sum = np.sum(new_state)
         if concept_prob_sum == 0:
-            # TODO check how it happens: iteration 10
             raise Exception("encountered degraded particle from history!")
 
         new_state /= concept_prob_sum
@@ -174,13 +172,11 @@ class ContinuousModel(BaseBelief):
         return prob
 
     def get_observation_prob(self, action, observation):
-        # TODO could be precomputed somewhere
         concepts_w_obs = self.state_action_values[action[0]] == observation
 
         prob = 0
         for idx, particle in enumerate(self.particle_dists):
-            # TODO think about that it makes sense
-            # TODO paper details
+            # TODO Note: equation clarification
             consistent_prob = np.sum(particle[concepts_w_obs])
             response_prob_from_consistent = (1 - self.production_noise) * consistent_prob
             response_prob_from_inconsistent = self.obs_noise_prob
